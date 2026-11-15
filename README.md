@@ -1,60 +1,47 @@
-<a id="inicio"></a>
+# Refúgio
 
-# Refúgio — DevOps e Cloud
+API de pontos de alívio térmico, com execução em Docker e implantação no Microsoft Azure.
 
-API CitizenTech de pontos de alívio térmico, executada com Java 25 e PostgreSQL 16 em dois containers integrados. Repositório independente da entrega Java Advanced, com o código-fonte necessário para reconstruir a aplicação.
+O Refúgio reúne endereços, horários declarados e recursos, como água e sombra, em pontos de alívio térmico. A consulta é pública. Pessoas com perfil de gestor podem manter o cadastro dos pontos e de seus recursos, enquanto a API também registra medições ambientais e relatos de indisponibilidade.
 
-> **Dados demonstrativos. Confirme local e horários antes de usar.** Pontos, usuários e leituras da carga inicial são fictícios.
+A API é a parte do sistema que recebe as consultas e salva os cadastros. A interface de testes no navegador permite experimentar essas funções sem depender de um aplicativo móvel.
 
-## Navegação
+Este repositório contém o código da aplicação e a configuração de infraestrutura da entrega de DevOps Tools & Cloud Computing, da Global Solution FIAP 2026/2. Você pode executar o projeto no seu computador sem instalar Java: o Docker faz a compilação e inicia a API e o banco.
 
-- [Como executar](#como-executar)
-- [Azure](#azure)
-- [Arquitetura](#arquitetura)
-- [Evidências](#evidencias)
+> [!NOTE]
+> Os dados são fictícios e servem para demonstração. Confirme o local e os horários antes de usar qualquer informação do catálogo. As temperaturas apresentadas não são uma avaliação médica nem uma garantia de segurança.
 
-## Equipe
+## Neste README
 
-| Integrante | RM | Turma |
-| --- | --- | --- |
-| Guilherme Soares | 568227 | A preencher |
-| Demais integrantes | A preencher | A preencher |
-
-## Estado da implantação
-
-A aplicação foi implantada e validada em uma VM Azure temporária, incluindo acesso externo, CRUD, SELECT, persistência e reboot. **Todos os recursos da sessão foram excluídos ao concluir**, inclusive o Network Watcher automático; a consulta final confirmou zero grupos e zero recursos. O código está publicado. Para gravar ou apresentar ao vivo, será necessário recriar o ambiente com autorização específica. Consulte as evidências para os resultados reais.
-
-## Organização
-
-```text
-Dockerfile                  build Maven e runtime Java 25 não-root
-docker-compose.yml          API, PostgreSQL, rede e volume nomeados
-.env.example                configuração sem segredos
-src/                        fonte e testes da API Spring Boot
-scripts/                    preparação local e testes HTTP
-azure/                      provisionamento, instalação, deploy e ciclo de vida
-docs/devops/                diagramas e evidências da execução
-```
-
-## Origem da aplicação
-
-O código da API foi copiado do projeto [Refúgio Java](https://github.com/Guilherme-Soares00/refugio), revisão `d492a82f82a96bf56e432aa9f85408ba2ede0943`. Esta entrega possui histórico Git próprio e não altera aquele repositório. O domínio e a segurança foram preservados: Ponto, Recurso, Medição, Ocorrência e Usuário; JWT com papéis CIDADAO/GESTOR.
-
-Não há integração automática com os bancos Oracle das demais entregas, CI/CD, Kubernetes, ACR, proxy reverso ou HTTPS. São limites do escopo atual, não componentes implantados.
+- [Executar no computador](#como-executar)
+- [Usar e testar a API](#usar-a-api)
+- [Entender a arquitetura](#arquitetura)
+- [Consultar logs, banco e persistência](#operacao)
+- [Implantar no Azure](#azure)
+- [Executar os testes](#testes)
+- [Consultar as evidências](#evidencias)
+- [Resolver problemas](#problemas)
+- [Conhecer a estrutura e a equipe](#sobre-o-repositorio)
 
 <a id="como-executar"></a>
 
-## Como executar
+## Executar no computador
 
-### 1. Escopo e configuração do ambiente
+### O que você precisa
 
-Dois containers: `refugio-api` (Spring Boot/JRE 25, usuário Linux 10001, porta 8080) e `refugio-db` (`postgres:16`, porta 5432). Comunicação pela rede `refugio-net`; dados no volume `refugio-pgdata`. O Oracle não faz parte deste Compose.
+| Ferramenta | Quando é necessária |
+| --- | --- |
+| Docker Desktop com containers Linux, ou Docker Engine | Para executar a API e o PostgreSQL. O Compose deve aceitar `up --wait`. |
+| Git | Para baixar o repositório. |
+| Bash, OpenSSL e curl | Para preparar a configuração e conferir o serviço. No Windows, use o Git Bash. |
+| Node.js 22 ou superior | Apenas para os testes HTTP e os exemplos de curl que extraem campos JSON. Sem Node, use o Swagger. |
+| JDK 25 | Apenas se você quiser compilar ou executar os testes Java fora do Docker. |
 
-Pré-requisitos locais: Docker Desktop em modo Linux ou Docker Engine, Compose moderno com `up --wait`, Git, Bash e OpenSSL. Git Bash inclui Bash/OpenSSL no Windows. Node.js 22+ é opcional para os testes HTTP automatizados. Java 25 é necessário **somente para compilar/testar fora do Docker**; o Maven Wrapper já está incluído. Não use Java 21 para o JAR compilado em Java 25.
+No Windows, abra o Docker Desktop e aguarde a inicialização. O comando `docker version` precisa mostrar tanto o cliente quanto o servidor.
 
-No Windows, inicie o Docker Desktop e aguarde o motor Linux ficar disponível. `docker version` deve mostrar Client **e Server**. Os blocos abaixo indicam onde executar; não misture comandos locais com um terminal SSH remoto.
+### Iniciar a aplicação
 
-#### Execução rápida — Git Bash local, WSL ou Linux
+Execute no **Git Bash local, WSL ou terminal Linux**:
 
 ```bash
 git clone https://github.com/Guilherme-Soares00/refugio-devops.git
@@ -65,95 +52,67 @@ docker compose ps
 curl -fsS http://localhost:8080/actuator/health
 ```
 
-Esperado: dois serviços `healthy` e `{"status":"UP"}`. O código está publicado no GitHub. Os comandos podem ser executados em uma cópia clonada; o Dockerfile reconstrói a aplicação a partir do fonte incluído.
+Na primeira execução, o Docker baixa as imagens e as dependências do Maven. Ao terminar, `api` e `db` devem aparecer como `healthy`, e a consulta de saúde deve responder:
 
-O preparador gera senha aleatória e chave JWT Base64 com 48 bytes aleatórios. Não mostra os valores e não sobrescreve `.env` existente. `--dados-demo` habilita os usuários e dados fictícios necessários à demonstração. Sem essa opção, o seed fica desabilitado. A API local é publicada em `127.0.0.1` por padrão. O script recusa opções desconhecidas.
+```json
+{"status":"UP"}
+```
 
-**Não grave `.env`, tokens ou comandos que imprimam credenciais. Não execute `docker compose config` sem `--quiet` durante a gravação:** a saída expandida contém segredos.
+O preparador cria o arquivo local `.env`, gera a senha do banco e a chave de autenticação e habilita os dados de exemplo. Ele não exibe os segredos nem sobrescreve um `.env` existente. Sem `--dados-demo`, a carga de exemplo fica desabilitada.
 
-#### PowerShell local
+Se você estiver no PowerShell, abra o Git Bash na pasta do projeto para executar o preparador. Depois disso, os comandos `docker compose` também podem ser usados no PowerShell.
 
-Na raiz já clonada, use os mesmos comandos Docker. Para preparar o ambiente, abra Git Bash nessa pasta e execute o preparador. Não tente executar um `.sh` diretamente no PowerShell sem um Bash instalado.
+### Abrir no navegador
 
-#### Interfaces
+| Endereço local | O que você encontra |
+| --- | --- |
+| [Swagger UI](http://localhost:8080/swagger-ui/index.html) | Documentação interativa para consultar e testar os endpoints. |
+| [Catálogo de pontos](http://localhost:8080/api/pontos) | Resposta da consulta pública em JSON. |
+| [Saúde da aplicação](http://localhost:8080/actuator/health) | Indicação de que o serviço está respondendo. |
+| [Especificação OpenAPI](http://localhost:8080/v3/api-docs) | Descrição dos endpoints, entradas e respostas. |
 
-- Swagger: <http://localhost:8080/swagger-ui/index.html>
-- OpenAPI: <http://localhost:8080/v3/api-docs>
-- Catálogo: <http://localhost:8080/api/pontos>
-- Saúde: <http://localhost:8080/actuator/health>
+A carga inicial pode levar alguns segundos após o serviço começar a responder. Se o login de demonstração ainda não funcionar, aguarde a conclusão da carga antes de tentar novamente.
 
-Saúde disponível não comprova término do seed: aguarde o login demonstrativo funcionar ou confira as contagens no banco. As credenciais abaixo são públicas, fictícias e exclusivas de demonstração.
+<a id="usar-a-api"></a>
 
-| Papel | E-mail | Senha demonstrativa |
+## Usar e testar a API
+
+### Consultar e autenticar pelo Swagger
+
+A consulta do catálogo não exige login. Para cadastrar, alterar ou excluir pontos e recursos, use uma conta com o perfil `GESTOR`.
+
+As contas abaixo são públicas e existem somente quando a carga demonstrativa está habilitada:
+
+| Perfil | E-mail | Senha de demonstração |
 | --- | --- | --- |
 | GESTOR | gestor09@example.test | GestorDemo2026! |
 | CIDADAO | cidadao01@example.test | CidadaoDemo2026! |
 
-O cadastro público sempre cria CIDADAO. GESTOR pode cadastrar/alterar/excluir pontos e recursos; CIDADAO não pode. O catálogo é público. Não habilite esse seed em um serviço real.
+1. Abra o Swagger e execute `POST /api/auth/login` com o e-mail e a senha do gestor.
+2. Copie o valor de `accessToken` retornado.
+3. Clique em **Authorize** e informe o token. O esquema Bearer do Swagger acrescenta o prefixo necessário.
+4. Use os endpoints de pontos e recursos para criar, consultar, atualizar e excluir um cadastro de teste.
 
-### 2. Variáveis e segredos
+O token JWT identifica a sessão e o perfil de acesso. O cadastro público sempre cria uma conta `CIDADAO`, que não pode administrar pontos e recursos. Requisições de escrita sem token recebem `401`; uma conta autenticada sem permissão recebe `403`.
 
-`.env.example` é apenas um modelo. As linhas vazias de senha/chave precisam ser preenchidas pelo preparador ou por um mecanismo seguro. `.env` é ignorado pelo Git e pelo Docker. Não use uma chave JWT real em argumentos ou capturas.
+Não use essas contas em um serviço com dados reais. Em capturas ou gravações, oculte o token e a resposta de login.
 
-| Variável de configuração | Padrão/finalidade |
-| --- | --- |
-| POSTGRES_DB | `refugio`; banco inicial |
-| POSTGRES_USER | `refugio_app`; usuário de inicialização |
-| POSTGRES_PASSWORD | obrigatória; gerada com 24 bytes aleatórios em hexadecimal |
-| POSTGRES_PORT | `5432`; publicação apenas em loopback do host |
-| SPRING_DATASOURCE_URL | `jdbc:postgresql://db:5432/refugio`; `db` é o serviço, não localhost |
-| SPRING_DATASOURCE_USERNAME | recebida pela API a partir de POSTGRES_USER no Compose |
-| SPRING_DATASOURCE_PASSWORD | recebida pela API a partir de POSTGRES_PASSWORD no Compose |
-| SPRING_JPA_HIBERNATE_DDL_AUTO | `update`; criação/ajuste acadêmico das tabelas, não migração de produção |
-| JWT_SECRET | Base64 com no mínimo 32 bytes decodificados; preparador gera 48 |
-| JWT_EXPIRATION_SECONDS | `3600` segundos |
-| CORS_ALLOWED_ORIGINS | `http://localhost:3000`; ajuste à origem real do cliente web |
-| APP_SEED_ENABLED | `false`; `--dados-demo` gera `true` |
-| API_BIND_ADDRESS | `127.0.0.1` local; `--publicar-api` gera `0.0.0.0` para a VM |
-| API_PORT | `8080` no host |
-| JAVA_TOOL_OPTIONS | `-XX:MaxRAMPercentage=65.0 -XX:+ExitOnOutOfMemoryError` |
-| SERVER_PORT | `8080` dentro da API; porta interna fixa neste Compose |
+### Conferir o CRUD automaticamente
 
-POSTGRES_USER/PASSWORD são a fonte única do Compose para evitar divergência entre banco e aplicação. As variáveis SPRING_DATASOURCE_USERNAME/PASSWORD existem no ambiente da API, sem duplicar segredos no `.env`. Se mudar POSTGRES_DB, ajuste também a URL JDBC explicitamente configurada.
-
-Compose lê `.env` para interpolação; o Java iniciado fora dele não lê esse arquivo automaticamente. `env_file` não é necessário porque cada variável enviada ao container está explicitamente declarada em `environment`. Isso evita mandar os segredos do banco para serviços que não precisam deles.
-
-**Senha de volume existente:** mudar POSTGRES_PASSWORD no `.env` não muda o usuário já inicializado no PostgreSQL. Não apague o volume para contornar isso. Faça uma alteração administrativa de senha, sincronize a configuração e recrie apenas a API.
-
-### 3. Dockerfile explicado
-
-| Instrução | Motivo |
-| --- | --- |
-| FROM 25-jdk-jammy AS build | compila com o mesmo Java do projeto |
-| WORKDIR /build | define a pasta de trabalho da compilação |
-| COPY .mvn, mvnw, pom.xml, src/main | inclui wrapper, dependências e código de produção |
-| RUN --mount=type=cache ... package | reutiliza downloads Maven sem levar cache ao runtime |
-| -Dmaven.test.skip=true | build de imagem não executa testes destrutivos de banco; execute-os separadamente |
-| FROM 25-jre-jammy | imagem final recebe JRE, não Maven/JDK de compilação |
-| WORKDIR /app | diretório previsível para execução e evidência |
-| apt-get ... curl | instala explicitamente a ferramenta usada pelo healthcheck |
-| groupadd / useradd | cria usuário/grupo Linux 10001 |
-| ENV | padrões de porta e ajuste de memória, sem segredos |
-| COPY --from=build --chown | copia somente o JAR com proprietário não-root |
-| USER 10001:10001 | executa a JVM sem privilégios root |
-| EXPOSE 8080 | documenta a porta da imagem; não a publica sozinho |
-| ENTRYPOINT em array | processo Java recebe os sinais de parada diretamente |
-
-O runtime remove apenas listas temporárias do apt da própria imagem. A `.dockerignore` exclui Git, segredos, testes e materiais não usados no build. A imagem é a receita empacotada; o container é a instância em execução.
-
-### 4. CRUD e códigos HTTP
-
-#### Teste automatizado — máquina local
+Com Node.js instalado, execute no **terminal local**, na raiz do projeto:
 
 ```bash
 node scripts/testar-api.mjs http://localhost:8080 crud
 ```
 
-Executa login, catálogo, OpenAPI, Actuator, 401/403/400/404/409 e criar/ler/alterar/excluir Ponto e Recurso. Usa `REF-989` exclusivamente para esse teste e o remove no final. Não execute se já houver um registro importante com esse código. Se houver falha intermediária, os registros podem permanecer; confira pelo catálogo e limpe somente os dados de teste pela API.
+O teste verifica autenticação, permissões e o CRUD completo, isto é, criar, consultar, atualizar e excluir pontos e recursos. Também confere respostas de erro, a documentação OpenAPI e os endpoints de saúde. Ao concluir com sucesso, o resultado informa `APROVADO` e 27 verificações.
 
-#### Teste manual — Git Bash local
+Esse teste usa o código `REF-989` e exclui seus registros ao terminar. Não o execute se esse código já identificar um cadastro importante. Se houver uma falha no meio do processo, confira e remova somente os registros criados pelo teste, sem apagar o volume do banco.
 
-Mantenha o token em memória. Atribuições não o imprimem; não ative `set -x`.
+<details>
+<summary>Executar o CRUD por curl</summary>
+
+Requer Bash, curl e Node.js. Execute no **terminal local**, na raiz do projeto, com o código `REF-988` disponível. As variáveis guardam o token e os identificadores retornados pela API; não ative `set -x` nem imprima o token.
 
 ```bash
 BASE=http://localhost:8080
@@ -172,387 +131,38 @@ curl -sS -w '%{http_code}\n' -X DELETE "$BASE/api/pontos/$PONTO_ID" -H "Authoriz
 unset TOKEN
 ```
 
-POST retorna 201; GET 200; PUT/DELETE 204. O código público do ponto é imutável. Para remover um ponto com recursos, exclua primeiro os recursos criados para esse teste; pontos com histórico de medição/ocorrência não devem ser apagados, e sim inativados. Erros seguem JSON com status, erro, mensagem, path e timestamp.
+A criação retorna `201`; as consultas, `200`; e as alterações e exclusões, `204`. O código público de um ponto não muda após o cadastro. Exclua primeiro os recursos do seu teste: um ponto com relacionamentos não pode ser removido livremente. Pontos com histórico de medições ou ocorrências devem ser inativados.
 
-### 5. SELECT, usuários, logs e acesso — ambos os containers
-
-Execute na raiz do projeto, localmente ou por SSH na VM:
-
-```bash
-docker compose ps
-docker compose logs --tail 60 api
-docker compose logs --tail 60 db
-docker compose exec -T api sh -c 'whoami; id; pwd; ls -la /app'
-docker compose exec -T api sh -c 'printf "SERVER_PORT=%s\n" "$SERVER_PORT"; printf "SPRING_DATASOURCE_URL=%s\n" "$SPRING_DATASOURCE_URL"'
-docker compose exec -T db sh -c 'id postgres; pwd; ls -ld /var/lib/postgresql/data'
-docker compose exec -T db sh -c 'printf "POSTGRES_DB=%s\nPOSTGRES_USER=%s\n" "$POSTGRES_DB" "$POSTGRES_USER"'
-docker compose top db
-docker compose exec -T db psql -U refugio_app -d refugio -v ON_ERROR_STOP=1 -c "SELECT p.codigo_publico,p.nome,r.tipo,r.disponivel FROM ponto_refugio p JOIN recurso_ponto r ON r.ponto_id=p.id ORDER BY p.codigo_publico,r.tipo;"
-docker volume inspect refugio-pgdata --format '{{.Name}} {{.Driver}}'
-docker network inspect refugio-net --format '{{.Name}} {{.Driver}}'
-```
-
-A API roda como `refugio`, UID/GID 10001, em `/app`. Seu filesystem não contém dados permanentes do domínio; os logs vão para stdout/stderr e são acessíveis com `logs api`.
-
-**Banco:** `docker compose exec db whoami` pode retornar `root` porque um `exec` herda o usuário configurado na imagem. Isso não prova que o servidor PostgreSQL roda como root. O entrypoint inicializa permissões e entrega o processo ao usuário `postgres`. A evidência correta é `docker compose top db` (UID 999 na imagem testada) junto com `id postgres`; também é possível usar `docker compose exec -T --user postgres db id`. O UID pode mudar se a variante da imagem mudar: confira, não decore.
-
-`POSTGRES_USER=refugio_app` é uma conta **do banco**, diferente do usuário Linux postgres; na imagem oficial a conta de inicialização tem privilégios elevados. Esta entrega demonstra integração, não mínimo privilégio SQL de produção. Logs do banco são `logs db`, diretório de dados `/var/lib/postgresql/data`, volume nomeado `refugio-pgdata`.
-
-Nunca use `printenv` sem selecionar nomes não secretos. Não grave a saída completa de `docker inspect`, que pode incluir Environment com senhas.
-
-### 6. Persistência e idempotência
-
-**Atenção:** os comandos abaixo interrompem e recriam os containers deste Compose. Não removem volumes. Feche qualquer operação de escrita antes de executar.
-
-```bash
-node scripts/testar-api.mjs http://localhost:8080 preparar-persistencia
-docker compose exec -T db psql -U refugio_app -d refugio -c "SELECT p.id,p.codigo_publico,r.id AS recurso_id,r.tipo FROM ponto_refugio p JOIN recurso_ponto r ON r.ponto_id=p.id WHERE p.codigo_publico='REF-990';"
-docker compose down
-docker compose up -d --wait --wait-timeout 240
-node scripts/testar-api.mjs http://localhost:8080 verificar-persistencia
-docker compose exec -T db psql -U refugio_app -d refugio -c "SELECT p.id,p.codigo_publico,r.id AS recurso_id,r.tipo FROM ponto_refugio p JOIN recurso_ponto r ON r.ponto_id=p.id WHERE p.codigo_publico='REF-990';"
-```
-
-O preparo usa REF-990 e grava apenas IDs não secretos em `target/devops/persistencia.json` (não versionado). Prepare uma vez; se já existir, use diretamente a verificação, sem recriar o registro. O teste conserva esse ponto/recurso para a próxima demonstração. IDs não são necessariamente sequenciais: testes e conflitos consomem sequências.
-
-O seed usa e-mail, código público, par ponto/tipo e chaves de identificação das leituras/ocorrências para não duplicar cargas em reinícios sequenciais. Não sobrescreve alterações. Recriar um registro demonstrativo removido é comportamento da carga inicial; use códigos fora de REF-001…010 para demonstrar exclusão. Não execute múltiplas APIs com seed em paralelo neste ambiente.
-
-**Nunca executar `down -v` para provar persistência:** a opção remove o volume e apaga os dados. `docker system prune` também não faz parte do roteiro.
-
-### 7. Testes Java — banco descartável separado
-
-A suíte usa `ddl-auto` destrutivo. Não aponte para `refugio` nem para banco compartilhado. A proteção exige nome exato `refugio_test`.
-
-```bash
-docker run --name refugio-devops-test --rm -d -p 127.0.0.1:55432:5432 -e POSTGRES_DB=refugio_test -e POSTGRES_USER=refugio_test -e POSTGRES_PASSWORD=refugio_test_only postgres:16
-docker exec refugio-devops-test pg_isready -U refugio_test -d refugio_test
-```
-
-Espere `accepting connections`. No **PowerShell local** com JDK 25:
-
-```powershell
-.\mvnw.cmd -B verify
-```
-
-Ou Linux/WSL com JDK 25: `bash mvnw -B verify`. Relatórios reais: `target/surefire-reports`. Depois, `docker stop refugio-devops-test` remove esse container descartável e seu banco de testes; não afeta o volume principal. Se já existir, confira seu estado em vez de repetir `docker run`.
-
-Validação adicional de configuração, sem criar recursos Azure:
-
-```bash
-node --test tests/compose.test.mjs tests/environment.test.mjs tests/api-safety.test.mjs
-bash tests/test-azure.sh
-```
-
-### 8. Azure — autorização antes de custos
-
-**Não execute provisionamento sem aprovação explícita.** Os scripts possuem modo plano por padrão. Criar VM, discos e IP público pode consumir créditos; ligar uma VM também. Não se presume gratuidade do Azure for Students. A sessão validada usou Chile Central e Standard_B2als_v2, com quota e preços conferidos. Os recursos foram removidos ao concluir; antes de recriar, confira novamente política, quota, capacidade e preços da assinatura autorizada.
-
-O passo a passo de login, parâmetros, provisionamento, transferência do instalador, deploy e ciclo de vida está em **[seção Azure](#azure)**. Esse guia usa Azure CLI, sem cloud-init ocultando a instalação Docker. Não há CI/CD.
-
-```bash
-bash azure/01-provisionar.sh --plano
-bash azure/02-instalar-docker.sh --plano
-bash azure/03-deploy.sh --plano
-bash azure/parar-iniciar.sh --plano
-bash azure/limpar.sh --plano
-```
-
-A VM deve usar IP público **estático**, SSH restrito ao IPv4 administrativo /32 e 8080 para demonstração. Não abrir 5432 no NSG. A API só fica pública quando `API_BIND_ADDRESS=0.0.0.0` na VM; a instalação local permanece loopback.
-
-#### Testes a partir do computador, depois da implantação autorizada
-
-Leitura pública, **Git Bash local**, substituindo o valor do IP retornado pelo Azure:
-
-```bash
-VM_IP=IP_PUBLICO_DA_VM
-curl -fsS "http://$VM_IP:8080/actuator/health"
-curl -fsS "http://$VM_IP:8080/api/pontos"
-```
-
-Abra também `http://IP_PUBLICO_DA_VM:8080/swagger-ui/index.html`. Não execute esses comandos apenas dentro da VM e chame isso de acesso externo.
-
-Como não há HTTPS, **login e requisições com token devem usar túnel SSH**, não HTTP aberto. Deixe o túnel abaixo em um segundo terminal local. A chave deve existir fora do repositório; compare a impressão digital do host com a obtida pelo canal autenticado do Azure antes de aceitar a primeira conexão.
-
-```bash
-ssh -i "$HOME/.ssh/CHAVE_DO_PROJETO" -N -L 127.0.0.1:18080:127.0.0.1:8080 USUARIO_DA_VM@IP_PUBLICO_DA_VM
-```
-
-Em outro terminal local:
-
-```bash
-node scripts/testar-api.mjs http://localhost:18080 crud
-```
-
-A aplicação ainda roda na VM Azure; somente o transporte administrativo é protegido por SSH. O HTTP público expõe apenas o catálogo usado na demonstração. O seed tem credenciais públicas: isso **não é uma implantação segura para dados reais**, mesmo com o túnel administrativo.
-
-#### Persistência e reinício da VM — procedimento validado
-
-Pelo computador local e com o túnel SSH ativo, prepare/verifique o registro com `node scripts/testar-api.mjs http://localhost:18080 preparar-persistencia` e depois `verificar-persistencia`, usando a mesma URL nas duas fases. Na sessão SSH remota, execute `docker compose down` sem `-v`, `docker compose up -d --wait --wait-timeout 240` e o SELECT. O instalador da VM não instala Node: os testes Node ficam no computador, não no terminal remoto. Para provar reboot, após autorização execute o reinício da VM, aguarde seu retorno, reconecte por SSH, reabra o túnel e verifique `systemctl is-enabled docker`, `docker compose ps`, endpoint público e SELECT do REF-990. `restart: unless-stopped` só reinicia automaticamente containers não deixados deliberadamente parados; depois de `compose down` será necessário `compose up` novamente.
-
-Antes de reiniciar, deixe os containers em execução (`compose up -d`), não em estado deliberadamente parado. Após autorização, execute **no terminal local autenticado no Azure**:
-
-```bash
-az vm restart --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$VM_NAME"
-az vm get-instance-view --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$VM_NAME" --query 'instanceView.statuses[].displayStatus' --output table
-```
-
-Depois do retorno, reabra a sessão **SSH remota**, entre em `$HOME/refugio-devops` e confira:
-
-```bash
-systemctl is-enabled docker
-docker compose ps
-docker compose exec -T db psql -U refugio_app -d refugio -c "SELECT p.codigo_publico,r.tipo FROM ponto_refugio p JOIN recurso_ponto r ON r.ponto_id=p.id WHERE p.codigo_publico='REF-990';"
-```
-
-Reabra o túnel e confira também o endpoint público a partir do computador. Esse procedimento foi executado e aprovado em uma VM temporária deste projeto, posteriormente excluída. O resultado histórico não comprova um serviço atualmente online.
-
-**Lembrete de custo:** a validação foi temporária e terminou com exclusão integral dos recursos. Para gravar ou demonstrar nas apresentações de 23–27/11, recrie o ambiente com autorização específica e teste o novo IP antes de começar. Exclua os recursos ao terminar a sessão autorizada. Deallocate reduz computação, mas não remove disco/IP nem garante ausência de cobrança. A exclusão do grupo é destrutiva e apaga também os dados do volume.
-
-### 9. Problemas frequentes
-
-| Sintoma | Conferência e menor correção |
-| --- | --- |
-| Erro no pipe dockerDesktopLinuxEngine | abrir Docker Desktop, aguardar motor Linux; conferir Client/Server |
-| Porta 8080 ou 5432 ocupada | identificar o serviço; ajustar API_PORT/POSTGRES_PORT no `.env`, sem parar serviços alheios |
-| Container com nome já existente | conferir `docker ps -a` e projeto proprietário; não apagar containers desconhecidos |
-| API não conecta ao banco | URL dentro do Compose usa `db:5432`, credenciais correspondem ao volume; conferir logs |
-| WeakKeyException/chave JWT inválida | gerar Base64 de 32+ bytes aleatórios; não usar texto curto nem trocar a chave sem considerar tokens existentes |
-| Login demo retorna 401 | conferir seed habilitado e término da carga; não imprimir hashes/senhas do banco |
-| healthcheck falha | conferir logs; `curl` é instalado no runtime; validar porta interna 8080 e prazo de inicialização |
-| Azure falha por região/SKU/quota ou HTTP público inacessível | consultar política/quotas/SKUs antes de nova tentativa; para acesso, conferir VM ligada, bind, NSG e porta; não migrar para SKU mais cara automaticamente |
-
-### 10. Limitações e pendências
-
-Sem HTTPS, domínio, backup automatizado, alta disponibilidade, migrações versionadas ou monitoramento externo. Imagens por tag podem receber atualizações; registre versão efetiva no momento da demonstração. Recursos gratuitos/quota/capacidade não estão garantidos. A imagem da API não executa os testes de banco durante seu build. Dados são fictícios; a etiqueta de temperatura é didática, não índice de segurança ou recomendação médica.
-
-Nuvem, persistência e reinício real da VM foram comprovados na validação temporária documentada. O ambiente foi removido. Integração Flutter/Arduino, vídeo, link não listado e PDF com equipe completa não são comprovados por esses testes e dependem das respectivas entregas. Não é necessário modificar o projeto Java original para executar este repositório.
-
-<a id="azure"></a>
-
-## Azure
-
-### Estado e escopo
-
-**Validação real concluída; recursos removidos para encerrar a sessão.** A VM temporária em Chile Central foi usada para build, CRUD, SELECT, persistência e reboot; a limpeza final confirmou zero grupos e zero recursos, incluindo o Network Watcher automático. Consulte [os resultados e capturas](#evidencias). Os valores e quotas consultados não garantem disponibilidade futura ou em outra assinatura. Recriação e novos custos exigem autorização específica.
-
-A entrega executa uma VM Ubuntu 24.04 LTS amd64, Docker instalado explicitamente nela e Compose com Java 25 e PostgreSQL 16. O projeto Compose é `refugio-devops`; os containers são `refugio-api` e `refugio-db`; a rede global é `refugio-net`; o volume global é `refugio-pgdata`. Não execute um segundo projeto com esses nomes no mesmo host. PostgreSQL só publica `127.0.0.1:5432`; API publica `8080`. Ambos usam `restart: unless-stopped` no Compose.
-
-Os cinco scripts operacionais usam `--plano` por padrão. Nesse modo não chamam nem mesmo `az`, não consultam a nuvem, não acessam o GitHub e não instalam nada. `_comum.sh` é biblioteca: mantenha-a ao lado dos demais scripts. Não há login, mudança de assinatura global, registro de provider, geração de chave, SSH ou limpeza automática dentro dos scripts.
-
-### 1. Parâmetros — terminal local Git Bash
-
-Execute da raiz do repositório. No Windows, use caminhos como `C:/Users/seu-usuario/.ssh/chave.pub` ou caminhos válidos no Git Bash. Os scripts desativam a conversão automática de argumentos MSYS para preservar CIDRs e consultas; o caminho da chave pública é convertido explicitamente com `cygpath -m` para a Azure CLI nativa, sem alterar o arquivo.
-
-| Variável | Valor padrão | O que informar/verificar |
-| --- | --- | --- |
-| `AZURE_SUBSCRIPTION_ID` | nenhum | UUID da assinatura autorizada; formato validado antes da primeira chamada Azure |
-| `RESOURCE_GROUP` | `refugio-devops` | grupo dedicado **novo**, prefixo `refugio-`, letras minúsculas, números e hífen |
-| `LOCATION` | `chilecentral` | região usada na validação; revalidar política e disponibilidade na assinatura |
-| `VM_SIZE` | `Standard_B2als_v2` | 2 vCPUs/4 GB x64 usados na validação; revalidar quota, capacidade e preço |
-| `VM_NAME` | `refugio-vm` | nome da VM, prefixo `refugio-` |
-| `ADMIN_USER` | `refugioadmin` | usuário Linux não root |
-| `ADMIN_CIDR` | nenhum | seu IPv4 público administrativo com `/32`; sem rede ampla, zeros iniciais ou octetos inválidos |
-| `SSH_PUBLIC_KEY` | nenhum | caminho de arquivo `.pub` existente, fornecido por você; nunca a chave privada |
-
-Opcionais: `AZURE_IMAGE=Canonical:ubuntu-24_04-lts:server:latest` aceita essa família Ubuntu LTS, com arquitetura x64 conferida na execução; `AZURE_DISK_SKU=StandardSSD_LRS` aceita somente `StandardSSD_LRS` ou `Standard_LRS`. Os padrões ficam no topo de `_comum.sh`. Nenhum tamanho/região é trocado automaticamente em caso de erro.
-
-Preparação de variáveis sem operação Azure, no terminal local Git Bash:
-
-```bash
-export AZURE_SUBSCRIPTION_ID='SUBSTITUA-PELO-UUID-AUTORIZADO'
-export RESOURCE_GROUP=refugio-devops
-export LOCATION=chilecentral
-export VM_SIZE=Standard_B2als_v2
-export VM_NAME=refugio-vm
-export ADMIN_USER=refugioadmin
-export ADMIN_CIDR='SEU-IPV4-PUBLICO/32'
-export SSH_PUBLIC_KEY="$HOME/.ssh/sua-chave-existente.pub"
-bash azure/01-provisionar.sh --plano
-```
-
-Os marcadores não são valores válidos e precisam ser substituídos. Não grave valores privados ou segredos no repositório. A autenticação da Azure CLI deve ocorrer separadamente, apenas quando autorizada. Antes da primeira execução real, confira a ajuda da CLI instalada para os comandos utilizados, suas permissões e os providers já registrados. Esses scripts não instalam nem fixam versão da CLI.
-
-### 2. Autenticação, disponibilidade e custo — antes de provisionar
-
-Estes comandos são executados no terminal **local Git Bash, WSL ou Azure Cloud Shell**, com uma conta e assinatura autorizadas. Não criam VM. Autenticação é separada de autorização para consumir créditos. Se a sessão já estiver autenticada, não repita login.
-
-```bash
-az login --use-device-code
-az account list --query '[].{nome:name,id:id,estado:state}' --output table
-az account show --subscription "$AZURE_SUBSCRIPTION_ID" --query '{nome:name,estado:state}' --output table
-az account list-locations --subscription "$AZURE_SUBSCRIPTION_ID" --query '[].{regiao:name,nome:displayName}' --output table
-az vm list-skus --subscription "$AZURE_SUBSCRIPTION_ID" --location "$LOCATION" --size "$VM_SIZE" --resource-type virtualMachines --all --output table
-az vm list-usage --subscription "$AZURE_SUBSCRIPTION_ID" --location "$LOCATION" --output table
-```
-
-A lista geral de regiões não garante que a política do Azure for Students permita criação nelas; confira restrições da assinatura, quotas por família e região. Um SKU listado ainda pode falhar por falta de capacidade. Se região/tamanho forem bloqueados, interrompa e reveja `LOCATION`/`VM_SIZE` antes de outra tentativa, sem trocar para uma opção mais cara automaticamente.
-
-A estimativa deve separar VM Linux, disco de SO, IP público Standard e tráfego. Consulte [preços de VM Linux](https://azure.microsoft.com/pricing/details/virtual-machines/linux/), [discos gerenciados](https://azure.microsoft.com/pricing/details/managed-disks/) e [IP público](https://azure.microsoft.com/pricing/details/ip-addresses/), selecionando a região e o tamanho efetivos. Sem essa consulta e confirmação de saldo, não há preço ou gratuidade garantidos. A configuração Standard_B2als_v2 foi testada nesta entrega, mas isso não garante capacidade futura nem autoriza novos custos.
-
-### 3. Criar infraestrutura — terminal local Git Bash, somente após autorização de custos
-
-**O comando abaixo cria recursos cobrados. Não é etapa de teste local.** Ele exige simultaneamente flag, autorização de custos e confirmação exata do grupo:
-
-```bash
-AUTORIZAR_CUSTOS=SIM CONFIRMAR_CRIACAO="CRIAR:$RESOURCE_GROUP" \
-  bash azure/01-provisionar.sh --executar
-```
-
-Antes de criar o grupo, o script faz somente leituras: assinatura/id/estado, ausência do grupo, registro dos providers Compute/Network, imagem x64, SKU x64 sem restrições e quadro de quotas. A disponibilidade de quota não garante alocação, nem as leituras substituem a avaliação de políticas ou de custos. Grupo existente, inclusive com a tag correta, é recusado. Não há retomada automática de implantação parcial.
-
-A infraestrutura inclui:
-
-- Grupo e recursos identificados por `projeto=refugio-devops`.
-- IP público IPv4 Standard estático; NIC, VNet e subnet dedicadas.
-- NSG com duas permissões customizadas de entrada: TCP 22 de `ADMIN_CIDR` e TCP 8080 de `Internet`. Não há regra pública para 5432; permanecem as regras padrão da plataforma para rede virtual e bloqueio externo.
-- VM Ubuntu x64 com chave pública existente e autenticação SSH; sem senha gerada.
-- SSD Standard de 32 GiB e opções `Delete` para disco de SO e NIC, conferidas por leitura após criar a VM.
-
-O IP é mostrado apenas quando retornado por uma execução real autorizada. Não há IP de exemplo tratado como real. O script não instala Docker nem abre uma sessão SSH. Se falhar após começar a criação, podem restar recursos cobrados; não há exclusão automática. Analise o grupo e autorize a limpeza em separado.
-
-### 4. Transferir e instalar Docker — contextos local e remoto separados
-
-Somente depois de uma VM real autorizada e pronta: confira a identidade/fingerprint SSH por canal confiável; nunca desative a verificação do host. Use sua chave privada existente apenas na máquina local. Não envie `.env`, chave privada ou token para o Git.
-
-Antes da primeira conexão, no terminal **local autenticado no Azure**, obtenha a impressão digital da chave de host pelo canal autenticado. Esse comando roda apenas uma consulta ao arquivo público dentro da VM já autorizada; não é uma verificação a executar antes de criar a VM:
-
-```bash
-az vm run-command invoke --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$VM_NAME" --command-id RunShellScript --scripts 'ssh-keygen -l -E sha256 -f /etc/ssh/ssh_host_ed25519_key.pub' --query 'value[0].message' --output tsv
-```
-
-Compare o fingerprint ED25519 retornado com o mostrado pelo SSH antes de responder `yes`. Ele identifica o servidor, não a chave pessoal do usuário. Se recriar a VM, confira novamente; não contorne um alerta de mudança de identidade.
-
-Terminal **local Git Bash**, ajustando o IP real retornado e o caminho da chave privada, e somente após autorizar SSH:
-
-```bash
-export PUBLIC_IP='SUBSTITUA-PELO-IP-REAL'
-export SSH_PRIVATE_KEY="$HOME/.ssh/sua-chave-existente"
-export DESTINO_SSH="$ADMIN_USER@$PUBLIC_IP"
-ssh -i "$SSH_PRIVATE_KEY" "$DESTINO_SSH"
-```
-
-Na sessão **remota Ubuntu**, crie somente a pasta de scripts e saia:
-
-```bash
-mkdir -p "$HOME/azure-refugio"
-exit
-```
-
-De volta ao terminal **local Git Bash**, transfira os scripts com a biblioteca antes de conectar novamente:
-
-```bash
-scp -i "$SSH_PRIVATE_KEY" azure/_comum.sh azure/02-instalar-docker.sh azure/03-deploy.sh "$DESTINO_SSH:azure-refugio/"
-ssh -i "$SSH_PRIVATE_KEY" "$DESTINO_SSH"
-```
-
-Na sessão **remota Ubuntu 24.04 LTS amd64**, execute o plano e depois, apenas com autorização para alterar a VM, a instalação. `DOCKER_USER` deve ser o usuário Linux já existente; `id -un` captura o usuário antes do sudo:
-
-```bash
-cd "$HOME/azure-refugio"
-bash 02-instalar-docker.sh --plano
-sudo env AUTORIZAR_ALTERACAO_LOCAL=SIM CONFIRMAR_DOCKER=INSTALAR-DOCKER-NA-VM DOCKER_USER="$(id -un)" \
-  bash 02-instalar-docker.sh --executar
-```
-
-O instalador exige root/Linux/Ubuntu 24.04/amd64 e usuário não root validado. Usa o repositório HTTPS oficial Docker com chave `signed-by`, instala Docker Engine, Buildx, Compose plugin, curl, git e OpenSSL, habilita o serviço no boot e verifica serviço/grupo. O grupo `docker` concede privilégios equivalentes a root. Saia e reconecte por SSH para aplicar a nova associação; não rode deploy com sudo.
-
-### 5. Deploy — sessão remota Ubuntu, usuário no grupo docker
-
-O repositório remoto precisa conter a versão aprovada/publicada. Um repositório vazio não permite deploy: publicação é uma autorização separada e não é feita por estes scripts.
-
-```bash
-cd "$HOME/azure-refugio"
-bash 03-deploy.sh --plano
-AUTORIZAR_ALTERACAO_LOCAL=SIM CONFIRMAR_DEPLOY=DEPLOY-REFUGIO-NA-VM \
-  bash 03-deploy.sh --executar
-```
-
-O destino fixo é `$HOME/refugio-devops`; a origem fixa é `https://github.com/Guilherme-Soares00/refugio-devops.git`, branch `main`. O script recusa links, diretório estranho, origin diferente, branch diferente e alterações locais; atualização usa fetch e merge `--ff-only`, nunca reset ou remoção de trabalho local.
-
-Ele chama `bash scripts/preparar-ambiente.sh --dados-demo --publicar-api`. O helper cria `.env` com permissão 600 somente se ausente; arquivo existente não é sobrescrito, exibido nem enviado. O deploy confere seu hash antes/depois sem mostrar o hash/conteúdo. Se o arquivo existente tiver outra permissão, ajuste-a conscientemente na VM antes de repetir. São fornecidas ao Compose somente variáveis não secretas: projeto `refugio-devops`, carga demo ativa, API em `0.0.0.0:8080`, banco publicado só no loopback 5432 definido no Compose. Credenciais existentes permanecem no `.env`.
-
-A subida usa `docker compose up -d --build --wait --wait-timeout 300`. Esse timeout limita a espera de saúde, não o tempo total do build. Depois são consultados os serviços e os endpoints locais `/actuator/health` e `/api/pontos` com curl, instalado na etapa anterior. Sucesso local não comprova acessibilidade externa.
-
-Terminal **local**, leitura pública sem autenticação, após trocar o IP:
-
-```bash
-curl --fail "http://$PUBLIC_IP:8080/api/pontos"
-```
-
-Não envie senha/JWT pelo IP público HTTP. Para autenticação e escrita administrativas, use HTTPS ou um túnel SSH autorizado, por exemplo no terminal **local Git Bash**:
-
-```bash
-ssh -i "$SSH_PRIVATE_KEY" -N -L 127.0.0.1:18080:127.0.0.1:8080 "$DESTINO_SSH"
-```
-
-Enquanto o túnel estiver ativo, use `http://127.0.0.1:18080` no cliente administrativo. Não imprima tokens, `.env` ou resultados de login em logs públicos.
-
-### 6. Parar, iniciar e excluir — terminal local Git Bash
-
-Planos seguros, sem chamadas Azure:
-
-```bash
-bash azure/parar-iniciar.sh parar --plano
-bash azure/parar-iniciar.sh iniciar --plano
-bash azure/limpar.sh --plano "$RESOURCE_GROUP"
-```
-
-**Desalocar** requer autorização própria; não equivale a eliminar todos os custos. Disco, volume e IP continuam existentes e podem ser cobrados:
-
-```bash
-AUTORIZAR_ALTERACAO_AZURE=SIM CONFIRMAR_PARADA="PARAR:$RESOURCE_GROUP:$VM_NAME" \
-  bash azure/parar-iniciar.sh parar --executar
-```
-
-**Iniciar** volta a gerar cobrança de computação e exige nova confirmação de custos:
-
-```bash
-AUTORIZAR_CUSTOS=SIM CONFIRMAR_INICIO="INICIAR:$RESOURCE_GROUP:$VM_NAME" \
-  bash azure/parar-iniciar.sh iniciar --executar
-```
-
-Ambas as ações validam assinatura, prefixo, existência e tag do grupo e da VM, e releem o estado de energia antes de declarar sucesso. Reiniciar não remove o volume Postgres; não use `docker compose down -v` se pretende demonstrar persistência.
-
-**Excluir é irreversível:** apaga o grupo inteiro e todos os dados do volume, não apenas a VM. Exige nome explícito igual à variável, confirmação exata e tag de propriedade. Remover somente a VM não garante remoção do IP público nem dos demais recursos.
-
-```bash
-AUTORIZAR_EXCLUSAO=SIM CONFIRMAR_EXCLUSAO="EXCLUIR:$RESOURCE_GROUP" \
-  bash azure/limpar.sh --executar "$RESOURCE_GROUP"
-```
-
-O script lista os recursos, aguarda a exclusão síncrona, verifica grupo ausente e lista vazia consultando a assinatura e filtrando o nome do grupo. A consulta final não usa o endpoint de um grupo já removido. Falha em confirmar a ausência não é apresentada como sucesso. Não há limpeza automática depois de outro script falhar.
-
-#### Network Watcher automático
-
-O Azure pode criar NetworkWatcherRG fora do grupo dedicado. A limpeza do projeto não apaga grupos externos ou compartilhados automaticamente. Nesta validação a assinatura estava vazia antes do teste, o grupo automático continha somente NetworkWatcher_chilecentral e a remoção desse grupo recém-criado também foi autorizada e verificada. Nunca apague NetworkWatcherRG se já existia ou contém recursos de outra atividade.
-
-Depois da limpeza, confira os grupos e recursos restantes da assinatura; zero recursos no grupo dedicado não prova que não houve criação automática fora dele.
-
-```bash
-az group list --subscription "$AZURE_SUBSCRIPTION_ID" --query '[].{nome:name,regiao:location}' --output table
-az resource list --subscription "$AZURE_SUBSCRIPTION_ID" --query '[].{nome:name,tipo:type,grupo:resourceGroup}' --output table
-```
-
-### 7. Validação exclusivamente local
-
-Terminal **local Git Bash**, sem login, rede, instalação, Docker ou chamadas Azure reais:
-
-```bash
-for arquivo in azure/*.sh tests/test-azure.sh; do bash -n "$arquivo" || exit; done
-bash tests/test-azure.sh
-```
-
-Os testes exportam doubles Bash que bloqueiam comandos reais, verificam plano/autorizações incompletas e simulam leituras/escritas Azure, NSG, escopo de assinatura, rejeição de grupo existente, imagem ARM, erro parcial sem limpeza, ciclo de vida, tags e exclusão confirmada. São testes de controle de fluxo, não instalação Linux real, compilação em VM, validação de respostas reais da Azure, persistência em nuvem ou prova de implantação/custo. Esses itens continuam dependentes de autorização e execução no ambiente correspondente.
-
-Referências de sintaxe: [Azure CLI VM](https://learn.microsoft.com/cli/azure/vm), [Azure CLI VNet](https://learn.microsoft.com/cli/azure/network/vnet), [instalação oficial do Docker no Ubuntu](https://docs.docker.com/engine/install/ubuntu/). Consulte também a ajuda da CLI instalada antes de autorizar operações reais.
+</details>
 
 <a id="arquitetura"></a>
 
-## Arquitetura
+## Como a aplicação está organizada
 
-### Estado e limites
+A API recebe as requisições e aplica as regras do Refúgio. O PostgreSQL guarda os cadastros. O Docker Compose inicia os dois serviços e configura a comunicação entre eles.
 
-**Implementado e validado localmente e no Azure:** imagem Java 25, PostgreSQL 16, Compose, healthchecks, rede, volume, CRUD, SELECT, persistência e reboot da VM. A sessão usou Chile Central, Standard_B2als_v2, Ubuntu 24.04 e SSD de 32 GiB. **Estado atual: recursos excluídos após a validação**, conforme o plano de minimizar custos. **Externo/proposto:** Flutter e gateway Arduino; este repositório não comprova essas integrações.
+| Componente | Função neste projeto |
+| --- | --- |
+| `refugio-api` | API Spring Boot com Java 25, publicada na porta `8080`. A JVM roda sem privilégios de administrador. |
+| `refugio-db` | PostgreSQL 16. A porta `5432` fica acessível somente pelo próprio computador ou pela VM. |
+| `refugio-net` | Rede privada do Compose. A API encontra o banco pelo nome do serviço `db`. |
+| `refugio-pgdata` | Volume nomeado que mantém os dados quando os containers são recriados. |
+| VM Azure | Máquina Ubuntu 24.04 LTS x64 usada para executar o mesmo Compose na nuvem. |
+
+A imagem de um container contém o que ele precisa para iniciar. O volume fica separado dessa imagem e guarda os dados do PostgreSQL. Por isso, recriar o container não significa apagar os cadastros.
+
+![Arquitetura do Refúgio: API, PostgreSQL, rede, volume e implantação Azure](docs/devops/arquitetura.png)
+
+O diagrama representa a implantação que foi validada e depois removida. Flutter e Arduino aparecem como componentes externos propostos; este repositório não comprova essas integrações. O banco Oracle de outras disciplinas não participa deste ambiente.
+
+Na nuvem, o NSG funciona como um filtro de rede associado à interface da VM: permite SSH na porta `22` a partir do IP administrativo e acesso à API na porta `8080`. Não há liberação pública da porta `5432`. No computador, a API é publicada em `127.0.0.1`, acessível apenas localmente.
+
+O Compose usa nomes fixos para containers, rede e volume. Não inicie outra cópia com os mesmos nomes no mesmo computador ou VM.
+
+<details>
+<summary>Consultar o diagrama em outros formatos e o código Mermaid</summary>
+
+O diagrama também está disponível em [HTML](docs/devops/arquitetura.html), [SVG](docs/devops/arquitetura.svg) e [PNG](docs/devops/arquitetura.png). Para gerar um PDF, abra o HTML no navegador, use **Imprimir → Salvar como PDF**, escolha paisagem e habilite os gráficos de fundo.
 
 ```mermaid
 flowchart LR
@@ -591,166 +201,509 @@ flowchart LR
     db -->|dados persistentes| volume
 ```
 
-O NSG é um conjunto de regras associado à NIC, não um servidor intermediário. A única entrada pública da aplicação é 8080. A porta do PostgreSQL é publicada em loopback para satisfazer a configuração de porta sem expor o banco à internet.
+</details>
 
-A composição local usa os mesmos nomes, mas não contém VM, IP público ou NSG. Os nomes explícitos de container/rede/volume impedem instâncias paralelas com o mesmo nome: não tente subir outro projeto com esses identificadores.
+<details>
+<summary>Entender as etapas do Dockerfile</summary>
 
-### Persistência
+O Dockerfile usa duas etapas: compila o projeto com JDK e Maven e copia somente o JAR para a imagem final, que contém o ambiente de execução Java. Isso evita levar ferramentas de compilação para o container da API.
 
-O JAR e a JVM ficam na imagem/contêiner da API. O cache Spring vive em memória e se perde ao reiniciar. As tabelas PostgreSQL ficam no volume `refugio-pgdata`; não ficam na imagem da API. `docker compose down` remove containers e rede, mas mantém o volume. **`docker compose down -v` apaga o volume e seus dados; não executar durante a demonstração.** Deletar o grupo Azure também apaga os discos e, portanto, os dados da VM.
-
-### Imagens para reutilizar
-
-Abra [arquitetura.html](docs/devops/arquitetura.html) no navegador. A visualização corresponde à topologia validada e identifica o ambiente como removido; não representa uma VM atualmente ativa. Há versões [SVG](docs/devops/arquitetura.svg) e [PNG](docs/devops/arquitetura.png) para README e gravação.
-
-Para PDF: abra o HTML no Chrome, pressione Ctrl+P, escolha Salvar como PDF, orientação paisagem, sem cabeçalhos/rodapés e habilite gráficos de fundo. Confira a legibilidade antes de anexar. O Mermaid acima também é renderizado pelo GitHub e pode ser exportado pelo Mermaid Live Editor, sem enviar segredos ou identificadores de conta.
-
-Os testes por IP público e na VM real foram concluídos. A arquitetura mostra o que foi validado antes da exclusão; o ambiente precisa ser recriado para gravação ou apresentação ao vivo.
-
-<a id="evidencias"></a>
-
-## Evidências
-
-### Estado da validação
-
-As verificações desta primeira seção descrevem a base local. A seção de validação Azure registra a execução real em nuvem e a exclusão integral do ambiente temporário. Não há VM ativa depois da limpeza.
-
-| Verificação executada | Resultado observado |
+| Instrução | Para que serve |
 | --- | --- |
-| Build Docker com Dockerfile deste repositório | concluído; imagem `refugio-api:devops` |
-| API e PostgreSQL | ambos `healthy` |
-| Testes Java, `mvnw.cmd -B verify` | 104 testes; 0 falhas, 0 erros, 0 ignorados; BUILD SUCCESS |
-| Testes locais Node de Compose, ambiente e transporte | 3 aprovados |
-| Testes de segurança dos scripts Azure | 57 verificações locais no Windows com doubles; nenhuma chamada Azure real |
-| Sintaxe dos scripts e consultas | bash -n aprovado; flags principais conferidas em --help da CLI instalada; três consultas JMESPath compiladas offline |
-| Fluxo do instalador Ubuntu | simulado em container Ubuntu 24.04 amd64 sem rede; apt, downloads e serviços substituídos por doubles; não é instalação real |
-| CRUD HTTP e segurança | 27 verificações aprovadas, incluindo 200/201/204/400/401/403/404/409 |
-| Persistência | REF-990 e seu recurso AGUA sobreviveram a `down` sem `-v` seguido de `up` |
-| SELECT com JOIN depois da recriação | ponto ID 13, REF-990, nome Persistencia DevOps, recurso ID 22, AGUA disponível |
-| Seed antes/depois da recriação | mesmos totais: 10 usuários, 11 pontos, 21 recursos, 10 medições e 10 ocorrências |
-| Usuário e diretório da API | `refugio`, UID/GID 10001, `/app`, `app.jar` |
-| Ferramenta de saúde na API | `/usr/bin/curl` presente e utilizado no healthcheck |
-| Runtime efetivo da imagem testada | Temurin 25.0.5+8; tag 25-jre-jammy pode receber atualizações |
-| Swagger UI real no navegador | 17 operações carregadas, sem erros; GET /api/pontos executado com resposta 200 |
-| Fluxo manual curl do guia | executado; dois PUTs e dois DELETEs retornaram 204 |
-| Processo do PostgreSQL | `docker compose top db` mostrou UID 999; `id postgres` confirmou esse usuário |
-| `exec db whoami` | retornou root; é o usuário do exec, não o do servidor PostgreSQL |
+| `FROM eclipse-temurin:25-jdk-jammy AS build` | Define o Java usado na compilação. |
+| `WORKDIR /build` | Organiza os arquivos da etapa de compilação. |
+| `COPY .mvn`, `mvnw`, `pom.xml` e `src/main` | Copia os arquivos necessários para construir a aplicação. |
+| `RUN --mount=type=cache ... package` | Reaproveita os downloads do Maven entre builds. |
+| `-Dmaven.test.skip=true` | Separa a construção da imagem dos testes que precisam de um banco descartável. |
+| `FROM eclipse-temurin:25-jre-jammy` | Usa um ambiente de execução Java, sem o JDK da compilação. |
+| `WORKDIR /app` | Define a pasta de trabalho da API. |
+| Instalação de `curl` | Disponibiliza a ferramenta usada pelo healthcheck. |
+| `groupadd`, `useradd` e `USER 10001:10001` | Executam a JVM com um usuário Linux não-root. |
+| `ENV` | Define os padrões de porta e memória, sem incluir segredos. |
+| `COPY --from=build --chown` | Copia o JAR para a imagem final com o proprietário adequado. |
+| `EXPOSE 8080` | Documenta a porta; quem a publica no computador é o Compose. |
+| `ENTRYPOINT` em array | Inicia o Java diretamente e permite que receba os sinais de parada. |
 
-Os 11 pontos e 21 recursos incluem um ponto/recurso adicional de persistência. A carga inicial original tem 10 pontos e 20 recursos. Os testes de CRUD excluem seus próprios registros ao terminar. IDs são resultados desta execução, não valores a fixar nos comandos de outro ambiente.
+A `.dockerignore` mantém Git, segredos, testes e outros arquivos desnecessários fora do contexto de build.
 
-[Captura real do GET 200 no Swagger local](docs/devops/evidencias/swagger-local-get-200.png).
+</details>
 
-Relatórios não versionados: `target/surefire-reports`, `target/validacao-maven.log` e `target/devops/*.json`. Não publique logs brutos sem revisar segredos.
+<a id="operacao"></a>
 
-### Sequência de evidências técnicas
+## Logs, banco e persistência
 
-Execute na raiz do projeto; use Git Bash local para os testes locais ou SSH na VM para evidenciar containers na nuvem. Sempre deixe visível o contexto do terminal para não confundir host e VM.
+Execute os comandos desta seção na **raiz do repositório**, no computador ou em uma sessão SSH dentro da VM. No ambiente remoto, entre primeiro em `$HOME/refugio-devops`.
 
-#### 1. Ferramentas e serviços
+### Ver serviços e logs
 
 ```bash
-docker --version
-docker compose version
-docker compose up -d --wait --wait-timeout 240
 docker compose ps
+docker compose logs --tail 60 api
+docker compose logs --tail 60 db
 ```
 
-Capture os dois serviços saudáveis. No Azure, mostre antes `hostname` e a saída de `az vm show` a partir de um terminal autenticado, limitando os campos a nome, região, tamanho e estado. Obtenha o IP com o comando documentado em seção Azure deste README.
+Os logs da API e do banco são enviados à saída dos processos e consultados separadamente pelos nomes `api` e `db`. O PostgreSQL deve indicar `database system is ready to accept connections` ao terminar a inicialização.
 
-#### 2. Logs sem segredos
-
-```bash
-docker compose logs --tail 40 api
-docker compose logs --tail 40 db
-```
-
-Mostre inicialização da API e `database system is ready to accept connections` do banco. Não mostre `.env` nem `docker inspect` completo.
-
-#### 3. Acesso, usuário e diretórios
+### Acessar os containers e conferir os usuários
 
 ```bash
 docker compose exec -T api sh -c 'whoami; id; pwd; ls -la /app'
 docker compose exec -T api sh -c 'printf "SERVER_PORT=%s\n" "$SERVER_PORT"; printf "SPRING_DATASOURCE_URL=%s\n" "$SPRING_DATASOURCE_URL"'
 docker compose exec -T db sh -c 'id postgres; pwd; ls -ld /var/lib/postgresql/data'
 docker compose exec -T --user postgres db id
-docker compose top db
 docker compose exec -T db sh -c 'printf "POSTGRES_DB=%s\nPOSTGRES_USER=%s\n" "$POSTGRES_DB" "$POSTGRES_USER"'
+docker compose top db
 ```
 
-Na fala: o servidor PostgreSQL roda como postgres mesmo que um exec sem `--user` use root. A conta SQL refugio_app não é o usuário Linux postgres. Não afirme que o banco tem conta SQL de menor privilégio: a imagem cria o usuário inicial com privilégios elevados.
+A API usa o usuário Linux `refugio`, UID/GID `10001`, e o diretório `/app`. Ela não mantém os cadastros em seu próprio sistema de arquivos.
 
-#### 4. Volume, rede e dados relacionados
+No banco, o servidor PostgreSQL roda como `postgres`. Um `docker compose exec db whoami` sem `--user` pode mostrar `root`, pois informa o usuário daquele comando, não o do servidor já em execução. Confira o processo com `top db`. O UID observado na imagem testada foi `999`, mas pode variar entre imagens.
+
+`refugio_app` é o usuário SQL do banco, diferente do usuário Linux `postgres`. A imagem oficial cria essa conta inicial com privilégios elevados; esta configuração não representa uma política de menor privilégio SQL para produção.
+
+### Consultar as duas tabelas relacionadas
 
 ```bash
+docker compose exec -T db psql -U refugio_app -d refugio -v ON_ERROR_STOP=1 -c "SELECT p.codigo_publico,p.nome,r.tipo,r.disponivel FROM ponto_refugio p JOIN recurso_ponto r ON r.ponto_id=p.id ORDER BY p.codigo_publico,r.tipo;"
 docker volume inspect refugio-pgdata --format '{{.Name}} {{.Driver}}'
 docker network inspect refugio-net --format '{{.Name}} {{.Driver}}'
-docker compose exec -T db psql -U refugio_app -d refugio -v ON_ERROR_STOP=1 -c "SELECT p.codigo_publico,p.nome,r.tipo,r.disponivel FROM ponto_refugio p JOIN recurso_ponto r ON r.ponto_id=p.id ORDER BY p.codigo_publico,r.tipo;"
 ```
 
-O relacionamento físico é `recurso_ponto.ponto_id → ponto_refugio.id`. O SELECT é diretamente no PostgreSQL do container, não uma resposta simulada da API.
+O SELECT é executado diretamente no PostgreSQL. Cada recurso se relaciona com um ponto por `recurso_ponto.ponto_id → ponto_refugio.id`. Os dados ficam em `/var/lib/postgresql/data`, ligado ao volume `refugio-pgdata`.
 
-#### 5. CRUD completo e controle de acesso
+### Conferir a persistência
+
+O procedimento cria o ponto `REF-990` e um recurso `AGUA`, guarda os identificadores e confere se continuam iguais após a recriação dos containers.
+
+> [!WARNING]
+> `docker compose down` interrompe os serviços, mas mantém o volume. Não acrescente `-v`: essa opção também remove o volume e apaga os dados.
+
+Com Node.js instalado, execute no **terminal local**, na raiz do projeto:
 
 ```bash
-node scripts/testar-api.mjs http://localhost:8080 crud
+node scripts/testar-api.mjs http://localhost:8080 preparar-persistencia
+docker compose exec -T db psql -U refugio_app -d refugio -c "SELECT p.id,p.codigo_publico,r.id AS recurso_id,r.tipo FROM ponto_refugio p JOIN recurso_ponto r ON r.ponto_id=p.id WHERE p.codigo_publico='REF-990';"
+docker compose down
+docker compose up -d --wait --wait-timeout 240
+node scripts/testar-api.mjs http://localhost:8080 verificar-persistencia
+docker compose exec -T db psql -U refugio_app -d refugio -c "SELECT p.id,p.codigo_publico,r.id AS recurso_id,r.tipo FROM ponto_refugio p JOIN recurso_ponto r ON r.ponto_id=p.id WHERE p.codigo_publico='REF-990';"
 ```
 
-Para gravação, demonstre também os payloads do fluxo manual do guia ou o Swagger pelo túnel SSH. A automação imprime método, rota e status, nunca o token. Use GESTOR para escrita e CIDADAO para evidenciar 403. Sem token, a escrita retorna 401.
+Execute o preparo uma única vez. Se `REF-990` já existir, use a verificação, sem tentar recriá-lo. O estado do teste fica em `target/devops/persistencia.json`, fora do Git, e deve ser usado com a mesma URL do preparo. O teste preserva esse cadastro para novas conferências.
 
-#### 6. Persistência
+A carga inicial usa identificadores próprios para não duplicar dados em reinícios sequenciais. Ela não sobrescreve alterações, mas pode recriar um exemplo que tenha sido removido. Para testar exclusões, use códigos fora de `REF-001` a `REF-010`. Não inicie duas APIs com a carga de exemplo em paralelo sobre esse banco.
 
-Use a seção 6 do guia: preparar uma única vez, SELECT antes, `down` **sem `-v`**, `up -d`, verificar novamente e SELECT depois. Se REF-990 já existir, não repita o preparo; execute diretamente `verificar-persistencia`. Confirme os mesmos IDs e valores.
+<details>
+<summary>Consultar as variáveis de ambiente</summary>
 
-### Validação Azure — concluída, com recursos removidos
+O arquivo `.env.example` mostra os campos disponíveis. O preparador preenche os segredos do `.env` local, que não deve ser versionado. O Compose lê esse arquivo e envia a cada container as variáveis declaradas em `environment`.
 
-- [x] Código revisado e publicado no repositório DevOps, com autorização de push.
-- [x] Região, SKU, quotas e estimativa de VM/disco/IP conferidos.
-- [x] Autorização específica para criar recursos e consumir créditos.
-- [x] VM efetivamente criada por Azure CLI, IP estático e regras NSG conferidas.
-- [x] Docker e Compose instalados explicitamente dentro da VM.
-- [x] API e banco saudáveis dentro da VM, não somente no computador.
-- [x] GET público de saúde e catálogo a partir do computador externo.
-- [x] Swagger carregado e CRUD na aplicação remota, com login/token pelo túnel SSH.
-- [x] SELECT direto no banco da VM e persistência após recriar containers.
-- [x] Reboot real da VM e retorno automático dos containers/serviço Docker.
-- [ ] Vídeo não listado em 720p ou mais, narrado, links acessíveis e PDF completo.
-
-Vídeo, PDF final e disponibilidade para a gravação/apresentação continuam dependentes das respectivas etapas; os testes concluídos não as substituem.
-
-
-#### Resultado real em nuvem
-
-| Item | Evidência observada |
+| Variável | Valor padrão ou finalidade |
 | --- | --- |
-| Plataforma | Ubuntu 24.04 LTS x64, Chile Central, Standard_B2als_v2: 2 vCPUs e 4 GB |
-| Disco/IP | SSD Standard de 32 GiB; IP Standard estático; ambos excluídos ao final |
-| Instalação | Docker 29.9.3 e Compose 5.7.1 instalados pelo script dentro da VM |
-| Containers | refugio-api e refugio-db saudáveis; API pública em 8080; banco apenas em 127.0.0.1:5432 |
-| Acesso externo | Saúde e catálogo consultados pelo IP público a partir do computador local |
-| Swagger público | 17 operações renderizadas em navegador real; captura abaixo |
-| CRUD/segurança | 27 verificações HTTP aprovadas na aplicação remota; autenticação pelo túnel SSH |
-| Persistência | REF-990, ponto 13 e recurso 22 preservados após recriação e reboot |
-| Seed | Mesmas contagens antes/depois: 10 usuários, 11 pontos, 21 recursos, 10 medições, 10 ocorrências |
-| Reboot real | Ambos retornaram healthy e unless-stopped; Docker habilitado no boot, sem compose up após reboot |
-| Limpeza | Grupo dedicado e grupo automático NetworkWatcherRG removidos; consulta final: zero grupos e zero recursos |
+| `POSTGRES_DB` | `refugio`, o banco inicial. |
+| `POSTGRES_USER` | `refugio_app`, a conta de inicialização do banco. |
+| `POSTGRES_PASSWORD` | Obrigatória; o preparador gera 24 bytes aleatórios em hexadecimal. |
+| `POSTGRES_PORT` | `5432`, publicada somente em `127.0.0.1`. |
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://db:5432/refugio`; `db` é o nome do serviço na rede do Compose. |
+| `SPRING_DATASOURCE_USERNAME` e `SPRING_DATASOURCE_PASSWORD` | Recebidas pela API a partir de `POSTGRES_USER` e `POSTGRES_PASSWORD`. |
+| `SPRING_JPA_HIBERNATE_DDL_AUTO` | `update`, para criação e ajuste acadêmico das tabelas. |
+| `JWT_SECRET` | Base64 com pelo menos 32 bytes decodificados; o preparador gera 48 bytes. |
+| `JWT_EXPIRATION_SECONDS` | `3600`, a duração do token em segundos. |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000`; ajuste à origem real de um cliente web. |
+| `APP_SEED_ENABLED` | `false`; o preparador usa `true` com `--dados-demo`. |
+| `API_BIND_ADDRESS` | `127.0.0.1` no computador; `0.0.0.0` com `--publicar-api`, para a VM. |
+| `API_PORT` | `8080`, a porta publicada no host. |
+| `JAVA_TOOL_OPTIONS` | `-XX:MaxRAMPercentage=65.0 -XX:+ExitOnOutOfMemoryError`. |
+| `SERVER_PORT` | `8080` dentro da API; esse mapeamento interno é fixo no Compose. |
 
-O IP mostrado na captura pertence à sessão temporária já encerrada; não é endereço ativo da entrega. Para gravar ou apresentar, recrie o ambiente com autorização própria e atualize o IP. Não trate captura antiga como prova de serviço atualmente online.
+A configuração do banco é compartilhada por referência no Compose para evitar senhas divergentes entre os serviços. Se mudar `POSTGRES_DB`, ajuste também a URL JDBC. Dentro de um container, `localhost` aponta para ele próprio, não para o banco em outro container.
 
-![Swagger Azure da validação temporária](docs/devops/evidencias/swagger-azure.png)
+Mudar `POSTGRES_PASSWORD` no `.env` não altera a senha de um banco já inicializado no volume. Nesse caso, altere a senha no PostgreSQL, sincronize a configuração e recrie a API. Não apague o volume como forma de corrigir a conexão.
 
-Arquivos verificáveis:
+O Java iniciado fora do Compose não lê `.env` automaticamente. A opção JPA `update` também não substitui migrações versionadas para um ambiente de produção.
 
-- [Resumo da validação](docs/devops/evidencias/azure-resumo.json) e [consulta final de limpeza](docs/devops/evidencias/azure-limpeza.json).
-- [CRUD real: método, caminho e status](docs/devops/evidencias/azure-crud.json).
-- [Infraestrutura e regras NSG, com IP administrativo omitido](docs/devops/evidencias/azure-infraestrutura.json).
-- [SELECT antes](docs/devops/evidencias/azure-select-antes.txt), [após recriação](docs/devops/evidencias/azure-select-apos-recriacao.txt) e [após reboot](docs/devops/evidencias/azure-select-apos-reboot.txt): arquivos idênticos.
-- [Verificação HTTP após recriação](docs/devops/evidencias/azure-persistencia-recriacao.json) e [após reboot](docs/devops/evidencias/azure-persistencia-reboot.json).
-- [Saúde e reinício automático](docs/devops/evidencias/azure-reboot.txt) e [trechos reais dos logs](docs/devops/evidencias/azure-logs.txt).
+</details>
 
-#### Custo e encerramento
+Não publique `.env`, chaves privadas ou tokens. Para conferir a configuração sem expor os valores, use `docker compose config --quiet`. Evite `printenv`, `docker inspect` e `docker compose config` completos em capturas, pois podem mostrar senhas.
 
-Referências públicas consultadas para a configuração usada: VM Linux US$ 0,0526/h; IP Standard US$ 0,005/h; SSD E4 LRS US$ 3,36/mês. **SUPOSIÇÃO de cálculo:** dividir o disco por 730 horas/mês, resultando em referência conjunta aproximada de US$ 0,062203/h.
+<a id="azure"></a>
 
-O intervalo do início do provisionamento até a limpeza do grupo principal foi de 759 segundos, incluindo consultas e espera do plano de controle. A aplicação dessa referência ao intervalo produz **US$ 0,013114 teóricos**, não uma cobrança conferida. Transações de disco, tráfego, impostos, arredondamentos e atraso de medição não estão incluídos. Não se presume gratuidade nem saldo de créditos.
+## Implantar no Azure
 
-O Azure criou automaticamente NetworkWatcherRG fora do grupo dedicado. Como a assinatura estava sem grupos antes da sessão e esse grupo continha somente NetworkWatcher_chilecentral, ele também foi removido. A leitura final da assinatura confirmou zero grupos e zero recursos. Nenhuma chave privada, senha ou JWT integra estes arquivos públicos.
+A implantação usa uma VM Ubuntu com Docker instalado explicitamente e os mesmos containers do ambiente local. Uma sessão real já foi validada e encerrada; as evidências estão [mais adiante](#evidencias). O repositório não mantém um endereço de demonstração ativo.
+
+**Criar ou iniciar recursos no Azure pode consumir créditos.** Antes de continuar, confira a assinatura autorizada, a região permitida, a quota e os preços de VM, disco e IP. Não presuma gratuidade do Azure for Students.
+
+Os scripts usam `--plano` por padrão. Esse modo apenas descreve a operação, sem consultar a nuvem ou alterar recursos. A execução real exige `--executar` e as confirmações mostradas abaixo. Os scripts não fazem login, não criam chaves SSH e não removem automaticamente recursos após uma falha.
+
+### 1. Preparar a conta e os parâmetros
+
+No **Git Bash local, WSL ou Azure Cloud Shell**, com Azure CLI instalada:
+
+```bash
+az login --use-device-code
+az account list --query '[].{nome:name,id:id,estado:state}' --output table
+```
+
+Se a sessão já estiver autenticada, não repita o login. Use uma assinatura em que você tenha permissão para provisionar os recursos.
+
+Na **raiz do repositório, no terminal local**, substitua o UUID, o IP administrativo e o caminho da sua chave pública existente:
+
+```bash
+export AZURE_SUBSCRIPTION_ID='SUBSTITUA-PELO-UUID-AUTORIZADO'
+export RESOURCE_GROUP=refugio-devops
+export LOCATION=chilecentral
+export VM_SIZE=Standard_B2als_v2
+export VM_NAME=refugio-vm
+export ADMIN_USER=refugioadmin
+export ADMIN_CIDR='SEU-IPV4-PUBLICO/32'
+export SSH_PUBLIC_KEY="$HOME/.ssh/sua-chave-existente.pub"
+bash azure/01-provisionar.sh --plano
+```
+
+| Parâmetro | O que conferir |
+| --- | --- |
+| `AZURE_SUBSCRIPTION_ID` | UUID da assinatura escolhida. Não é o nome da assinatura. |
+| `RESOURCE_GROUP` e `VM_NAME` | Nomes iniciados por `refugio-`. O grupo deve ser novo e exclusivo deste projeto. |
+| `LOCATION` | `chilecentral` foi a região validada; confirme se sua assinatura permite usá-la. |
+| `VM_SIZE` | `Standard_B2als_v2`, com 2 vCPUs e 4 GB, foi o tamanho validado. Confira quota, capacidade e preço. |
+| `ADMIN_CIDR` | Seu IPv4 público com `/32`, para restringir o SSH a esse endereço. |
+| `SSH_PUBLIC_KEY` | Caminho de um arquivo `.pub` existente. A chave privada fica somente no seu computador. |
+
+No Windows, o caminho da chave pode estar no formato `C:/Users/seu-usuario/.ssh/chave.pub` ou em um caminho válido no Git Bash. O script converte o caminho para a Azure CLI nativa sem alterar a chave.
+
+Os padrões estão em `azure/_comum.sh`. A imagem padrão é `Canonical:ubuntu-24_04-lts:server:latest`; o disco usa `StandardSSD_LRS`. O script aceita também `Standard_LRS`, mas não muda região ou tamanho por conta própria se houver um erro.
+
+Antes da criação, consulte no **terminal local**:
+
+```bash
+az account show --subscription "$AZURE_SUBSCRIPTION_ID" --query '{nome:name,estado:state}' --output table
+az account list-locations --subscription "$AZURE_SUBSCRIPTION_ID" --query '[].{regiao:name,nome:displayName}' --output table
+az vm list-skus --subscription "$AZURE_SUBSCRIPTION_ID" --location "$LOCATION" --size "$VM_SIZE" --resource-type virtualMachines --all --output table
+az vm list-usage --subscription "$AZURE_SUBSCRIPTION_ID" --location "$LOCATION" --output table
+```
+
+Um SKU listado não garante capacidade de alocação. Se a assinatura bloquear a opção escolhida, revise os parâmetros antes de tentar novamente. Os providers `Microsoft.Compute` e `Microsoft.Network` precisam estar registrados; o provisionador verifica isso, mas não os registra automaticamente.
+
+Confira os preços de [VM Linux](https://azure.microsoft.com/pricing/details/virtual-machines/linux/), [discos gerenciados](https://azure.microsoft.com/pricing/details/managed-disks/) e [IP público](https://azure.microsoft.com/pricing/details/ip-addresses/) para a configuração escolhida.
+
+### 2. Criar a VM
+
+Somente após aceitar os custos, execute no **terminal local**, na raiz do repositório:
+
+```bash
+AUTORIZAR_CUSTOS=SIM CONFIRMAR_CRIACAO="CRIAR:$RESOURCE_GROUP" \
+  bash azure/01-provisionar.sh --executar
+```
+
+O script cria o grupo, a rede, o NSG, o IP público estático, a interface de rede e a VM com disco de 32 GiB. O SSH fica restrito a `ADMIN_CIDR`; a API usa a porta `8080`; o PostgreSQL não recebe regra pública. O Docker será instalado na próxima etapa.
+
+Se a criação falhar depois de iniciar, podem restar recursos cobrados. Confira o grupo antes de repetir e siga o procedimento de [limpeza](#limpeza-azure) quando a exclusão for autorizada.
+
+### 3. Conectar à VM e instalar Docker
+
+No **terminal local**, obtenha o IP real e informe a chave privada correspondente à chave pública usada na criação:
+
+```bash
+export PUBLIC_IP="$(az network public-ip show --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name refugio-ip --query ipAddress --output tsv)"
+export SSH_PRIVATE_KEY="$HOME/.ssh/sua-chave-existente"
+export DESTINO_SSH="$ADMIN_USER@$PUBLIC_IP"
+az vm run-command invoke --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$VM_NAME" --command-id RunShellScript --scripts 'ssh-keygen -l -E sha256 -f /etc/ssh/ssh_host_ed25519_key.pub' --query 'value[0].message' --output tsv
+```
+
+O último comando obtém a impressão digital da chave pública do servidor pelo canal autenticado do Azure. Compare o valor ED25519 com o mostrado na primeira conexão SSH antes de responder `yes`. Se a VM for recriada, confira a identidade novamente; não desative essa verificação.
+
+Ainda no **terminal local**, crie a pasta remota, transfira os scripts e conecte:
+
+```bash
+ssh -i "$SSH_PRIVATE_KEY" "$DESTINO_SSH" 'mkdir -p "$HOME/azure-refugio"'
+scp -i "$SSH_PRIVATE_KEY" azure/_comum.sh azure/02-instalar-docker.sh azure/03-deploy.sh "$DESTINO_SSH:azure-refugio/"
+ssh -i "$SSH_PRIVATE_KEY" "$DESTINO_SSH"
+```
+
+Agora, na **sessão remota Ubuntu**, instale o Docker:
+
+```bash
+cd "$HOME/azure-refugio"
+bash 02-instalar-docker.sh --plano
+sudo env AUTORIZAR_ALTERACAO_LOCAL=SIM CONFIRMAR_DOCKER=INSTALAR-DOCKER-NA-VM DOCKER_USER="$(id -un)" \
+  bash 02-instalar-docker.sh --executar
+exit
+```
+
+O instalador usa o repositório oficial do Docker, instala Engine, Buildx e o plugin Compose e habilita o serviço no boot. Também instala Git, curl e OpenSSL. Ele exige Ubuntu 24.04 LTS amd64 e um usuário Linux não-root.
+
+O grupo `docker` concede acesso administrativo ao Docker. A nova associação só entra na sessão depois que você se reconecta. No **terminal local**:
+
+```bash
+ssh -i "$SSH_PRIVATE_KEY" "$DESTINO_SSH"
+```
+
+### 4. Publicar a aplicação na VM
+
+Na **sessão remota Ubuntu**, com seu usuário no grupo Docker:
+
+```bash
+cd "$HOME/azure-refugio"
+bash 03-deploy.sh --plano
+AUTORIZAR_ALTERACAO_LOCAL=SIM CONFIRMAR_DEPLOY=DEPLOY-REFUGIO-NA-VM \
+  bash 03-deploy.sh --executar
+```
+
+O deploy clona este repositório em `$HOME/refugio-devops`, prepara o `.env` com dados de demonstração e inicia o Compose em segundo plano. Se a pasta já existir, só aceita a origem esperada, a branch `main` e um checkout sem alterações; a atualização usa `--ff-only`.
+
+Um `.env` existente precisa ser um arquivo regular com permissão `600`. O script preserva seu conteúdo e verifica que não foi alterado. Na VM, a API é publicada em `0.0.0.0:8080`; a porta do banco continua restrita a `127.0.0.1:5432`.
+
+Depois do deploy, confira na **sessão remota**:
+
+```bash
+cd "$HOME/refugio-devops"
+docker --version
+docker compose version
+docker compose ps
+```
+
+No **computador local**, consulte a API pelo IP público:
+
+```bash
+curl -fsS "http://$PUBLIC_IP:8080/actuator/health"
+curl -fsS "http://$PUBLIC_IP:8080/api/pontos"
+```
+
+Abra também `http://IP_PUBLICO_DA_VM:8080/swagger-ui/index.html`, substituindo o endereço. Uma consulta feita somente dentro da VM não comprova o acesso externo.
+
+### 5. Proteger o acesso administrativo
+
+Esta demonstração não possui HTTPS. Para login e operações com token, abra um túnel SSH em um **segundo terminal local**:
+
+```bash
+ssh -i "$SSH_PRIVATE_KEY" -N -L 127.0.0.1:18080:127.0.0.1:8080 "$DESTINO_SSH"
+```
+
+Mantenha esse terminal aberto. Acesse o Swagger por `http://127.0.0.1:18080/swagger-ui/index.html` ou, em outro **terminal local**, execute:
+
+```bash
+node scripts/testar-api.mjs http://localhost:18080 crud
+```
+
+A aplicação continua na VM; o túnel protege o transporte das credenciais. As contas demonstrativas ainda são públicas, portanto esse ambiente não é adequado para informações reais.
+
+### 6. Conferir persistência e reinício
+
+Use o mesmo procedimento de [persistência](#operacao), com duas diferenças: os comandos Node rodam no **computador local**, com a URL `http://localhost:18080`, e os comandos Docker e SELECT rodam na **sessão SSH**, em `$HOME/refugio-devops`. Use a mesma URL no preparo e na verificação. O instalador da VM não instala Node.js.
+
+Para conferir o retorno automático depois de um reboot, deixe os containers em execução e, após autorizar o reinício, execute no **terminal local autenticado no Azure**:
+
+```bash
+az vm restart --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$VM_NAME"
+az vm get-instance-view --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$VM_NAME" --query 'instanceView.statuses[].displayStatus' --output table
+```
+
+Aguarde a VM retornar e reconecte. Na **sessão remota**:
+
+```bash
+cd "$HOME/refugio-devops"
+systemctl is-enabled docker
+docker compose ps
+docker compose exec -T db psql -U refugio_app -d refugio -c "SELECT p.codigo_publico,r.tipo FROM ponto_refugio p JOIN recurso_ponto r ON r.ponto_id=p.id WHERE p.codigo_publico='REF-990';"
+```
+
+Reabra o túnel e repita a verificação de persistência e as consultas públicas. O Docker deve estar habilitado e os dois containers devem voltar a ficar `healthy` sem um novo `compose up`. A política `unless-stopped` não reinicia containers deixados deliberadamente parados; depois de `compose down`, é necessário executar `compose up`.
+
+<a id="limpeza-azure"></a>
+
+### 7. Parar, iniciar e remover o ambiente
+
+Execute estes comandos no **terminal local**, na raiz do repositório, com os mesmos parâmetros da criação.
+
+Para apenas revisar as operações, sem chamadas Azure:
+
+```bash
+bash azure/parar-iniciar.sh parar --plano
+bash azure/parar-iniciar.sh iniciar --plano
+bash azure/limpar.sh --plano "$RESOURCE_GROUP"
+```
+
+Para desalocar a VM, após autorizar a parada:
+
+```bash
+AUTORIZAR_ALTERACAO_AZURE=SIM CONFIRMAR_PARADA="PARAR:$RESOURCE_GROUP:$VM_NAME" \
+  bash azure/parar-iniciar.sh parar --executar
+```
+
+A desalocação interrompe a computação, mas mantém os dados, o disco e o IP estático. Disco e IP podem continuar gerando custos. Para iniciar novamente, após aceitar a cobrança de computação:
+
+```bash
+AUTORIZAR_CUSTOS=SIM CONFIRMAR_INICIO="INICIAR:$RESOURCE_GROUP:$VM_NAME" \
+  bash azure/parar-iniciar.sh iniciar --executar
+```
+
+**A exclusão abaixo é irreversível:** remove o grupo inteiro, incluindo a VM, o disco e os dados do volume PostgreSQL. Use somente quando não precisar mais desse ambiente e a remoção estiver autorizada:
+
+```bash
+AUTORIZAR_EXCLUSAO=SIM CONFIRMAR_EXCLUSAO="EXCLUIR:$RESOURCE_GROUP" \
+  bash azure/limpar.sh --executar "$RESOURCE_GROUP"
+```
+
+O script valida a identificação do grupo, aguarda a exclusão e confirma a ausência de recursos daquele grupo. Não basta excluir somente a VM, pois o IP público e outros recursos podem permanecer.
+
+O Azure pode criar um `NetworkWatcherRG` fora do grupo do projeto. Não remova grupos preexistentes ou compartilhados. Após a limpeza, confira no **terminal local**:
+
+```bash
+az group list --subscription "$AZURE_SUBSCRIPTION_ID" --query '[].{nome:name,regiao:location}' --output table
+az resource list --subscription "$AZURE_SUBSCRIPTION_ID" --query '[].{nome:name,tipo:type,grupo:resourceGroup}' --output table
+```
+
+Na validação registrada, o grupo automático não existia antes da sessão e continha somente o watcher criado para o teste. Sua exclusão também foi autorizada e confirmada. Em outra assinatura, avalie esse grupo antes de qualquer remoção.
+
+<a id="testes"></a>
+
+## Testes
+
+Os testes complementam as verificações pelo navegador e os comandos de operação. Cada conjunto verifica uma parte diferente do ambiente.
+
+No **terminal local**, na raiz do repositório, você pode validar Compose, geração de ambiente e proteções dos scripts sem criar recursos Azure:
+
+```bash
+node --test tests/compose.test.mjs tests/environment.test.mjs tests/api-safety.test.mjs
+bash tests/test-azure.sh
+```
+
+Os testes Bash usam respostas simuladas para conferir autorizações, parâmetros e limpeza. Eles não criam VM nem comprovam uma implantação real. O CRUD HTTP usa uma API em execução, conforme a [seção de uso](#usar-a-api).
+
+<details>
+<summary>Executar a suíte Java com um PostgreSQL descartável</summary>
+
+Requer JDK 25 no computador. A suíte recria tabelas e só aceita o banco `refugio_test`. Nunca aponte os testes para o banco principal ou uma base compartilhada.
+
+No **terminal local**:
+
+```bash
+docker run --name refugio-devops-test --rm -d -p 127.0.0.1:55432:5432 -e POSTGRES_DB=refugio_test -e POSTGRES_USER=refugio_test -e POSTGRES_PASSWORD=refugio_test_only postgres:16
+docker exec refugio-devops-test pg_isready -U refugio_test -d refugio_test
+```
+
+Aguarde `accepting connections`. Se o container já existir, confira seu estado em vez de criá-lo novamente. As credenciais acima pertencem somente a esse banco descartável.
+
+No **PowerShell local**, na raiz do projeto:
+
+```powershell
+.\mvnw.cmd -B verify
+```
+
+Em Linux ou WSL com JDK 25, use `bash mvnw -B verify`. Os relatórios ficam em `target/surefire-reports`. Ao terminar, execute no **terminal local**:
+
+```bash
+docker stop refugio-devops-test
+```
+
+Esse comando remove o container descartável e seu banco de testes por causa de `--rm`. Ele não altera o volume principal do Refúgio.
+
+</details>
+
+<a id="evidencias"></a>
+
+## Evidências da execução
+
+A solução foi validada em uma VM temporária no Azure. Ao final da sessão, o grupo do projeto e o Network Watcher automático criado durante o teste foram removidos. A consulta final registrou zero grupos e zero recursos na assinatura usada para essa validação.
+
+Esses registros comprovam a execução concluída, não um serviço atualmente online. Para uma nova demonstração, é necessário recriar o ambiente, confirmar seu funcionamento e usar o novo endereço público.
+
+| Verificação | Resultado registrado |
+| --- | --- |
+| Infraestrutura Azure | Ubuntu 24.04 LTS x64, Chile Central, `Standard_B2als_v2`, 2 vCPUs, 4 GB e disco SSD Standard de 32 GiB. |
+| Instalação na VM | Docker 29.9.3 e Compose 5.7.1 instalados pelo script. |
+| API e banco | Ambos saudáveis; API na porta `8080` e banco restrito ao loopback do host. |
+| Acesso externo e Swagger | Saúde e catálogo acessados do computador; 17 operações carregadas no navegador. |
+| CRUD e permissões | 27 verificações HTTP aprovadas na aplicação remota, com autenticação pelo túnel SSH. |
+| Persistência | `REF-990`, ponto ID 13 e recurso ID 22 mantidos após recriação dos containers e reboot da VM. |
+| Carga inicial | Mesmos totais antes e depois: 10 usuários, 11 pontos, 21 recursos, 10 medições e 10 ocorrências. |
+| Reinício | Docker habilitado no boot e containers saudáveis com `unless-stopped`, sem um novo `compose up`. |
+| Limpeza | Grupo do projeto e grupo automático removidos; inventário final vazio. |
+
+As contagens incluem o ponto e o recurso criados para a persistência. A carga original tem 10 pontos e 20 recursos. Os IDs são resultados daquela execução, não números que outra instalação precise repetir.
+
+<details>
+<summary>Abrir as capturas e os registros técnicos</summary>
+
+![Swagger na VM Azure durante a validação temporária](docs/devops/evidencias/swagger-azure.png)
+
+O IP visível na captura pertence à sessão encerrada e não é um endereço ativo de demonstração.
+
+| Registro | Arquivo |
+| --- | --- |
+| Resumo da sessão | [azure-resumo.json](docs/devops/evidencias/azure-resumo.json) |
+| Consulta final de limpeza | [azure-limpeza.json](docs/devops/evidencias/azure-limpeza.json) |
+| Requisições do CRUD | [azure-crud.json](docs/devops/evidencias/azure-crud.json) |
+| Infraestrutura e regras de rede | [azure-infraestrutura.json](docs/devops/evidencias/azure-infraestrutura.json) |
+| SELECT antes da recriação | [azure-select-antes.txt](docs/devops/evidencias/azure-select-antes.txt) |
+| SELECT depois da recriação | [azure-select-apos-recriacao.txt](docs/devops/evidencias/azure-select-apos-recriacao.txt) |
+| SELECT depois do reboot | [azure-select-apos-reboot.txt](docs/devops/evidencias/azure-select-apos-reboot.txt) |
+| Verificação HTTP após recriação | [azure-persistencia-recriacao.json](docs/devops/evidencias/azure-persistencia-recriacao.json) |
+| Verificação HTTP após reboot | [azure-persistencia-reboot.json](docs/devops/evidencias/azure-persistencia-reboot.json) |
+| Retorno dos serviços | [azure-reboot.txt](docs/devops/evidencias/azure-reboot.txt) |
+| Trechos dos logs | [azure-logs.txt](docs/devops/evidencias/azure-logs.txt) |
+| Consulta no ambiente local | [swagger-local-get-200.png](docs/devops/evidencias/swagger-local-get-200.png) |
+
+Os três arquivos de SELECT são idênticos. O IP administrativo foi omitido dos registros de infraestrutura. Os arquivos públicos não incluem a senha real do banco, a chave JWT nem a chave SSH privada.
+
+Na validação original local, a suíte Java concluiu 104 testes sem falhas, erros ou testes ignorados. Os testes Node passaram em três casos, e o conjunto Bash concluiu 57 verificações. O instalador também teve seu fluxo simulado em Ubuntu 24.04 antes da instalação real na VM; simulação e execução real são verificações diferentes.
+
+</details>
+
+<details>
+<summary>Consultar a referência de custo da sessão encerrada</summary>
+
+As tarifas públicas consultadas naquela sessão foram US$ 0,0526/h para a VM Linux, US$ 0,005/h para o IP Standard e US$ 3,36/mês para o SSD E4 LRS. A divisão do custo do disco por 730 horas foi uma suposição de cálculo, com referência conjunta de aproximadamente US$ 0,062203/h.
+
+O período até a limpeza do grupo principal durou 759 segundos. Aplicar essa referência ao intervalo resulta em US$ 0,013114 teóricos, não em uma cobrança conferida. O cálculo não inclui transações de disco, tráfego, impostos, arredondamentos nem atraso na medição. Use os preços atuais e as condições da sua assinatura para planejar uma nova execução.
+
+</details>
+
+<a id="problemas"></a>
+
+## Problemas frequentes
+
+| O que aconteceu | O que conferir |
+| --- | --- |
+| O Docker informa erro no pipe `dockerDesktopLinuxEngine`. | Abra o Docker Desktop e aguarde o servidor ficar disponível em `docker version`. |
+| A porta `8080` ou `5432` está ocupada. | Identifique quem usa a porta e ajuste `API_PORT` ou `POSTGRES_PORT` no `.env`. Não pare um serviço desconhecido. |
+| Já existe um container com o mesmo nome. | Confira `docker ps -a` e a origem do container. Os nomes deste Compose são fixos. |
+| A API não consegue acessar o banco. | Dentro do Compose, use `db:5432`, não `localhost`. Confira os logs e se a senha corresponde ao banco já inicializado. |
+| O JWT causa `WeakKeyException`. | Use uma chave Base64 com pelo menos 32 bytes decodificados. O preparador gera uma chave adequada; não use uma frase curta. |
+| A conta de demonstração recebe `401`. | Confira se `APP_SEED_ENABLED=true` e se a carga terminou. Um `.env` existente não é refeito pelo preparador. |
+| O healthcheck falha. | Veja os logs, a porta interna `8080` e o tempo de inicialização. O Dockerfile instala `curl` para essa consulta. |
+| A criação da VM falha por região, tamanho ou quota. | Reveja as restrições da assinatura e os parâmetros antes de tentar novamente. Confira também se restaram recursos cobrados. |
+| A API responde na VM, mas não pelo IP público. | Confira VM ligada, regra NSG da porta `8080`, endereço público e `API_BIND_ADDRESS=0.0.0.0`. |
+| O teste de persistência não encontra o estado salvo. | Use o mesmo computador, arquivo `target/devops/persistencia.json` e URL usados no preparo. |
+
+<a id="sobre-o-repositorio"></a>
+
+## Estrutura e equipe
+
+```text
+Dockerfile                  compilação Maven e execução Java 25 sem root
+docker-compose.yml          API, PostgreSQL, rede e volume
+.env.example                modelo de configuração sem segredos
+src/main/                   código e dados demonstrativos da API
+src/test/                   testes Java
+scripts/                    preparação do ambiente e testes HTTP
+azure/                      criação da VM, instalação, deploy e limpeza
+tests/                      verificações de configuração e scripts
+docs/devops/                diagramas e evidências da execução
+```
+
+O código da API tem origem no projeto [Refúgio Java](https://github.com/Guilherme-Soares00/refugio), revisão `d492a82f82a96bf56e432aa9f85408ba2ede0943`. A entrega DevOps possui repositório próprio e não modifica o original. A aplicação mantém Spring Boot 3.5.16, Java 25 e PostgreSQL 16, com os domínios Ponto, Recurso, Medição, Ocorrência e Usuário.
+
+| Integrante | RM | Turma |
+| --- | --- | --- |
+| Guilherme Soares | 568227 | A preencher |
+| Demais integrantes | A preencher | A preencher |
+
+### Limites desta entrega
+
+A infraestrutura usa uma única VM e não possui HTTPS, domínio, backup automatizado, alta disponibilidade ou migrações versionadas. As imagens Docker usam tags que podem receber atualizações. Não há CI/CD, Kubernetes, ACR ou monitoramento externo.
+
+As integrações com Flutter, Arduino e bancos Oracle não são comprovadas por este repositório. Os dados de exemplo e as contas públicas são adequados apenas à demonstração. O cache da API fica em memória e não substitui a persistência no PostgreSQL.
+
+O vídeo, seu link não listado e o PDF final com os dados completos da equipe continuam pendentes. As evidências técnicas não substituem essas entregas nem a disponibilidade do ambiente durante uma nova apresentação.
