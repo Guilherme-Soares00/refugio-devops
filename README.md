@@ -333,7 +333,7 @@ Nuvem, reinício real da VM, integração Flutter/Arduino, vídeo, link não lis
 
 ### Estado e escopo
 
-**Preparação local, não implantação comprovada. Custo: estimativa pendente.** Nenhuma assinatura, região disponível, quota, capacidade ou preço foi confirmado por estes testes. Não há autorização implícita para consumir créditos, fazer login, registrar providers, provisionar, instalar ou publicar código.
+**Validação real concluída; recursos removidos para encerrar a sessão.** A VM temporária em Chile Central foi usada para build, CRUD, SELECT, persistência e reboot; a limpeza final confirmou zero grupos e zero recursos, incluindo o Network Watcher automático. Consulte [os resultados e capturas](#evidencias). Os valores e quotas consultados não garantem disponibilidade futura ou em outra assinatura. Recriação e novos custos exigem autorização específica.
 
 A entrega executa uma VM Ubuntu 24.04 LTS amd64, Docker instalado explicitamente nela e Compose com Java 25 e PostgreSQL 16. O projeto Compose é `refugio-devops`; os containers são `refugio-api` e `refugio-db`; a rede global é `refugio-net`; o volume global é `refugio-pgdata`. Não execute um segundo projeto com esses nomes no mesmo host. PostgreSQL só publica `127.0.0.1:5432`; API publica `8080`. Ambos usam `restart: unless-stopped` no Compose.
 
@@ -347,8 +347,8 @@ Execute da raiz do repositório. No Windows, use caminhos como `C:/Users/seu-usu
 | --- | --- | --- |
 | `AZURE_SUBSCRIPTION_ID` | nenhum | UUID da assinatura autorizada; formato validado antes da primeira chamada Azure |
 | `RESOURCE_GROUP` | `refugio-devops` | grupo dedicado **novo**, prefixo `refugio-`, letras minúsculas, números e hífen |
-| `LOCATION` | `brazilsouth` | região permitida pela assinatura; exemplo de configuração, não disponibilidade confirmada |
-| `VM_SIZE` | `Standard_B2s` | tamanho x64 com memória para build Java e banco; capacidade e preço pendentes |
+| `LOCATION` | `chilecentral` | região usada na validação; revalidar política e disponibilidade na assinatura |
+| `VM_SIZE` | `Standard_B2als_v2` | 2 vCPUs/4 GB x64 usados na validação; revalidar quota, capacidade e preço |
 | `VM_NAME` | `refugio-vm` | nome da VM, prefixo `refugio-` |
 | `ADMIN_USER` | `refugioadmin` | usuário Linux não root |
 | `ADMIN_CIDR` | nenhum | seu IPv4 público administrativo com `/32`; sem rede ampla, zeros iniciais ou octetos inválidos |
@@ -361,8 +361,8 @@ Preparação de variáveis sem operação Azure, no terminal local Git Bash:
 ```bash
 export AZURE_SUBSCRIPTION_ID='SUBSTITUA-PELO-UUID-AUTORIZADO'
 export RESOURCE_GROUP=refugio-devops
-export LOCATION=brazilsouth
-export VM_SIZE=Standard_B2s
+export LOCATION=chilecentral
+export VM_SIZE=Standard_B2als_v2
 export VM_NAME=refugio-vm
 export ADMIN_USER=refugioadmin
 export ADMIN_CIDR='SEU-IPV4-PUBLICO/32'
@@ -387,7 +387,7 @@ az vm list-usage --subscription "$AZURE_SUBSCRIPTION_ID" --location "$LOCATION" 
 
 A lista geral de regiões não garante que a política do Azure for Students permita criação nelas; confira restrições da assinatura, quotas por família e região. Um SKU listado ainda pode falhar por falta de capacidade. Se região/tamanho forem bloqueados, interrompa e reveja `LOCATION`/`VM_SIZE` antes de outra tentativa, sem trocar para uma opção mais cara automaticamente.
 
-A estimativa deve separar VM Linux, disco de SO, IP público Standard e tráfego. Consulte [preços de VM Linux](https://azure.microsoft.com/pricing/details/virtual-machines/linux/), [discos gerenciados](https://azure.microsoft.com/pricing/details/managed-disks/) e [IP público](https://azure.microsoft.com/pricing/details/ip-addresses/), selecionando a região e o tamanho efetivos. Sem essa consulta e confirmação de saldo, não há preço ou gratuidade garantidos. A proposta inicial de `Standard_B2s` é hipótese de dimensionamento, não autorização de custos.
+A estimativa deve separar VM Linux, disco de SO, IP público Standard e tráfego. Consulte [preços de VM Linux](https://azure.microsoft.com/pricing/details/virtual-machines/linux/), [discos gerenciados](https://azure.microsoft.com/pricing/details/managed-disks/) e [IP público](https://azure.microsoft.com/pricing/details/ip-addresses/), selecionando a região e o tamanho efetivos. Sem essa consulta e confirmação de saldo, não há preço ou gratuidade garantidos. A configuração Standard_B2als_v2 foi testada nesta entrega, mas isso não garante capacidade futura nem autoriza novos custos.
 
 ### 3. Criar infraestrutura — terminal local Git Bash, somente após autorização de custos
 
@@ -406,7 +406,7 @@ A infraestrutura inclui:
 - IP público IPv4 Standard estático; NIC, VNet e subnet dedicadas.
 - NSG com duas permissões customizadas de entrada: TCP 22 de `ADMIN_CIDR` e TCP 8080 de `Internet`. Não há regra pública para 5432; permanecem as regras padrão da plataforma para rede virtual e bloqueio externo.
 - VM Ubuntu x64 com chave pública existente e autenticação SSH; sem senha gerada.
-- Disco simples Standard e opções `Delete` para disco de SO e NIC, conferidas por leitura após criar a VM.
+- SSD Standard de 32 GiB e opções `Delete` para disco de SO e NIC, conferidas por leitura após criar a VM.
 
 O IP é mostrado apenas quando retornado por uma execução real autorizada. Não há IP de exemplo tratado como real. O script não instala Docker nem abre uma sessão SSH. Se falhar após começar a criação, podem restar recursos cobrados; não há exclusão automática. Analise o grupo e autorize a limpeza em separado.
 
@@ -521,6 +521,17 @@ AUTORIZAR_EXCLUSAO=SIM CONFIRMAR_EXCLUSAO="EXCLUIR:$RESOURCE_GROUP" \
 ```
 
 O script lista os recursos, aguarda a exclusão síncrona, verifica grupo ausente e lista vazia consultando a assinatura e filtrando o nome do grupo. A consulta final não usa o endpoint de um grupo já removido. Falha em confirmar a ausência não é apresentada como sucesso. Não há limpeza automática depois de outro script falhar.
+
+#### Network Watcher automático
+
+O Azure pode criar NetworkWatcherRG fora do grupo dedicado. A limpeza do projeto não apaga grupos externos ou compartilhados automaticamente. Nesta validação a assinatura estava vazia antes do teste, o grupo automático continha somente NetworkWatcher_chilecentral e a remoção desse grupo recém-criado também foi autorizada e verificada. Nunca apague NetworkWatcherRG se já existia ou contém recursos de outra atividade.
+
+Depois da limpeza, confira os grupos e recursos restantes da assinatura; zero recursos no grupo dedicado não prova que não houve criação automática fora dele.
+
+```bash
+az group list --subscription "$AZURE_SUBSCRIPTION_ID" --query '[].{nome:name,regiao:location}' --output table
+az resource list --subscription "$AZURE_SUBSCRIPTION_ID" --query '[].{nome:name,tipo:type,grupo:resourceGroup}' --output table
+```
 
 ### 7. Validação exclusivamente local
 
