@@ -274,7 +274,7 @@ Abra também `http://IP_PUBLICO_DA_VM:8080/swagger-ui/index.html`. Não execute 
 Como não há HTTPS, **login e requisições com token devem usar túnel SSH**, não HTTP aberto. Deixe o túnel abaixo em um segundo terminal local. A chave deve existir fora do repositório; compare a impressão digital do host com a obtida pelo canal autenticado do Azure antes de aceitar a primeira conexão.
 
 ```bash
-ssh -i "$HOME/.ssh/CHAVE_DO_PROJETO" -N -L 18080:127.0.0.1:8080 USUARIO_DA_VM@IP_PUBLICO_DA_VM
+ssh -i "$HOME/.ssh/CHAVE_DO_PROJETO" -N -L 127.0.0.1:18080:127.0.0.1:8080 USUARIO_DA_VM@IP_PUBLICO_DA_VM
 ```
 
 Em outro terminal local:
@@ -287,7 +287,24 @@ A aplicação ainda roda na VM Azure; somente o transporte administrativo é pro
 
 #### Persistência e reinício da VM — pendentes
 
-Na VM, execute o mesmo teste `down` sem `-v`, `up -d` e SELECT. Para provar reboot, após autorização execute o reinício da VM, aguarde seu retorno, reconecte por SSH, verifique `systemctl is-enabled docker`, `docker compose ps`, endpoint público e SELECT do REF-990. `restart: unless-stopped` só reinicia automaticamente containers não deixados deliberadamente parados; depois de `compose down` será necessário `compose up` novamente.
+Pelo computador local e com o túnel SSH ativo, prepare/verifique o registro com `node scripts/testar-api.mjs http://localhost:18080 preparar-persistencia` e depois `verificar-persistencia`, usando a mesma URL nas duas fases. Na sessão SSH remota, execute `docker compose down` sem `-v`, `docker compose up -d --wait --wait-timeout 240` e o SELECT. O instalador da VM não instala Node: os testes Node ficam no computador, não no terminal remoto. Para provar reboot, após autorização execute o reinício da VM, aguarde seu retorno, reconecte por SSH, reabra o túnel e verifique `systemctl is-enabled docker`, `docker compose ps`, endpoint público e SELECT do REF-990. `restart: unless-stopped` só reinicia automaticamente containers não deixados deliberadamente parados; depois de `compose down` será necessário `compose up` novamente.
+
+Antes de reiniciar, deixe os containers em execução (`compose up -d`), não em estado deliberadamente parado. Após autorização, execute **no terminal local autenticado no Azure**:
+
+```bash
+az vm restart --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$VM_NAME"
+az vm get-instance-view --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$VM_NAME" --query 'instanceView.statuses[].displayStatus' --output table
+```
+
+Depois do retorno, reabra a sessão **SSH remota**, entre em `$HOME/refugio-devops` e confira:
+
+```bash
+systemctl is-enabled docker
+docker compose ps
+docker compose exec -T db psql -U refugio_app -d refugio -c "SELECT p.codigo_publico,r.tipo FROM ponto_refugio p JOIN recurso_ponto r ON r.ponto_id=p.id WHERE p.codigo_publico='REF-990';"
+```
+
+Reabra o túnel e confira também o endpoint público a partir do computador. Esses comandos estão documentados, mas ainda não foram executados em uma VM deste projeto.
 
 **Lembrete de custo:** planeje manter a VM disponível para a demonstração de 23–27/11. Entre sessões, deallocate pode reduzir cobrança de computação, mas disco e IP podem continuar cobrados. Antes da aula, inicie com antecedência e teste o endpoint. Não exclua o grupo até concluir demonstrações e salvar os dados necessários. Exclusão do grupo é destrutiva e exige confirmação própria.
 
@@ -593,6 +610,9 @@ As verificações abaixo foram executadas na máquina local com Docker Desktop L
 | API e PostgreSQL | ambos `healthy` |
 | Testes Java, `mvnw.cmd -B verify` | 104 testes; 0 falhas, 0 erros, 0 ignorados; BUILD SUCCESS |
 | Testes locais Node de Compose, ambiente e transporte | 3 aprovados |
+| Testes de segurança dos scripts Azure | 57 verificações locais no Windows com doubles; nenhuma chamada Azure real |
+| Sintaxe dos scripts e consultas | bash -n aprovado; flags principais conferidas em --help da CLI instalada; três consultas JMESPath compiladas offline |
+| Fluxo do instalador Ubuntu | simulado em container Ubuntu 24.04 amd64 sem rede; apt, downloads e serviços substituídos por doubles; não é instalação real |
 | CRUD HTTP e segurança | 27 verificações aprovadas, incluindo 200/201/204/400/401/403/404/409 |
 | Persistência | REF-990 e seu recurso AGUA sobreviveram a `down` sem `-v` seguido de `up` |
 | SELECT com JOIN depois da recriação | ponto ID 13, REF-990, nome Persistencia DevOps, recurso ID 22, AGUA disponível |
