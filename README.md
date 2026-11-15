@@ -694,11 +694,3 @@ O código da API tem origem no projeto [Refúgio Java](https://github.com/Guilhe
 | --- | --- | --- |
 | Guilherme Soares | 568227 | A preencher |
 | Demais integrantes | A preencher | A preencher |
-
-### Limites desta entrega
-
-A infraestrutura usa uma única VM e não possui HTTPS, domínio, backup automatizado, alta disponibilidade ou migrações versionadas. As imagens Docker usam tags que podem receber atualizações. Não há CI/CD, Kubernetes, ACR ou monitoramento externo.
-
-As integrações com Flutter, Arduino e bancos Oracle não são comprovadas por este repositório. Os dados de exemplo e as contas públicas são adequados apenas à demonstração. O cache da API fica em memória e não substitui a persistência no PostgreSQL.
-
-O vídeo, seu link não listado e o PDF final com os dados completos da equipe continuam pendentes. As evidências técnicas não substituem essas entregas nem a disponibilidade do ambiente durante uma nova apresentação.
