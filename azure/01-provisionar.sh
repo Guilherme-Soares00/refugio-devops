@@ -23,6 +23,11 @@ done
 IFS=' ' read -r tipo material restante < "$SSH_PUBLIC_KEY" || [[ -n "${tipo:-}" && -n "${material:-}" ]] || falhar 'Arquivo de chave pública vazio ou ilegível.'
 [[ "$tipo" == ssh-ed25519 || "$tipo" == ssh-rsa || "$tipo" == ecdsa-sha2-nistp256 || "$tipo" == ecdsa-sha2-nistp384 || "$tipo" == ecdsa-sha2-nistp521 ]] || falhar 'Formato de chave pública SSH não reconhecido.'
 [[ "$material" =~ ^[A-Za-z0-9+/]+={0,3}$ ]] || falhar 'Material de chave pública inválido.'
+CHAVE_AZURE="$SSH_PUBLIC_KEY"
+if [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* ]]; then
+    command -v cygpath >/dev/null || falhar 'cygpath necessário para fornecer a chave à Azure CLI nativa no Windows.'
+    CHAVE_AZURE=$(cygpath -m "$SSH_PUBLIC_KEY")
+fi
 command -v az >/dev/null || falhar 'Azure CLI não encontrada; instale e autentique separadamente, com autorização.'
 validar_assinatura
 existe=$(azure group exists --name "$RESOURCE_GROUP" --output tsv)
@@ -44,7 +49,7 @@ azure network nsg rule create --resource-group "$RESOURCE_GROUP" --nsg-name refu
 azure network vnet create --resource-group "$RESOURCE_GROUP" --name refugio-vnet --location "$LOCATION" --address-prefixes 10.20.0.0/16 --subnet-name refugio-subnet --subnet-prefixes 10.20.0.0/24 --tags projeto=refugio-devops --output none
 azure network public-ip create --resource-group "$RESOURCE_GROUP" --name refugio-ip --location "$LOCATION" --sku Standard --allocation-method Static --version IPv4 --tags projeto=refugio-devops --output none
 azure network nic create --resource-group "$RESOURCE_GROUP" --name refugio-nic --location "$LOCATION" --vnet-name refugio-vnet --subnet refugio-subnet --network-security-group refugio-nsg --public-ip-address refugio-ip --tags projeto=refugio-devops --output none
-azure vm create --resource-group "$RESOURCE_GROUP" --name "$VM_NAME" --location "$LOCATION" --size "$VM_SIZE" --image "$AZURE_IMAGE" --admin-username "$ADMIN_USER" --authentication-type ssh --ssh-key-values "$SSH_PUBLIC_KEY" --nics refugio-nic --storage-sku "$AZURE_DISK_SKU" --os-disk-delete-option Delete --nic-delete-option Delete --tags projeto=refugio-devops --output none
+azure vm create --resource-group "$RESOURCE_GROUP" --name "$VM_NAME" --location "$LOCATION" --size "$VM_SIZE" --image "$AZURE_IMAGE" --admin-username "$ADMIN_USER" --authentication-type ssh --ssh-key-values "$CHAVE_AZURE" --nics refugio-nic --storage-sku "$AZURE_DISK_SKU" --os-disk-delete-option Delete --nic-delete-option Delete --tags projeto=refugio-devops --output none
 [[ "$(azure group show --name "$RESOURCE_GROUP" --query tags.projeto --output tsv)" == refugio-devops ]] || falhar 'Tag do grupo não foi confirmada.'
 [[ "$(azure vm show --resource-group "$RESOURCE_GROUP" --name "$VM_NAME" --query storageProfile.osDisk.deleteOption --output tsv)" == Delete ]] || falhar 'Delete option do disco não confirmada.'
 [[ "$(azure vm show --resource-group "$RESOURCE_GROUP" --name "$VM_NAME" --query 'networkProfile.networkInterfaces[0].deleteOption' --output tsv)" == Delete ]] || falhar 'Delete option da NIC não confirmada.'

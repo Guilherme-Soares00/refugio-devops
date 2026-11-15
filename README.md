@@ -324,7 +324,7 @@ Os cinco scripts operacionais usam `--plano` por padrão. Nesse modo não chamam
 
 ### 1. Parâmetros — terminal local Git Bash
 
-Execute da raiz do repositório. No Windows, use caminhos como `C:/Users/seu-usuario/.ssh/chave.pub` ou caminhos válidos no Git Bash. Os scripts desativam a conversão automática de argumentos MSYS para preservar CIDRs e consultas.
+Execute da raiz do repositório. No Windows, use caminhos como `C:/Users/seu-usuario/.ssh/chave.pub` ou caminhos válidos no Git Bash. Os scripts desativam a conversão automática de argumentos MSYS para preservar CIDRs e consultas; o caminho da chave pública é convertido explicitamente com `cygpath -m` para a Azure CLI nativa, sem alterar o arquivo.
 
 | Variável | Valor padrão | O que informar/verificar |
 | --- | --- | --- |

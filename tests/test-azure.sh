@@ -142,6 +142,12 @@ nao_contem 'provider register'
 nao_contem 'ssh-keygen'
 while IFS= read -r linha; do [[ "$linha" == *"--subscription $AZURE_SUBSCRIPTION_ID --only-show-errors"* ]] || { printf 'FALHA: comando sem escopo explícito\n' >&2; exit 1; }; done < "$AZURE_TEST_LOG"
 ok 'provisionamento simulado: escopo, NSG, IP, chave existente e Delete options'
+if [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* ]]; then
+    chave_posix=$(cygpath -u "$SSH_PUBLIC_KEY")
+    simular criar env SSH_PUBLIC_KEY="$chave_posix" bash "$ROOT/azure/01-provisionar.sh" --executar
+    contem "--ssh-key-values $(cygpath -m "$SSH_PUBLIC_KEY")"
+    ok 'chave Git Bash convertida para caminho nativo da Azure CLI'
+fi
 for caso in existente imagem-arm; do
     if simular "$caso" bash "$ROOT/azure/01-provisionar.sh" --executar; then printf 'FALHA: pré-condição aceita: %s\n' "$caso" >&2; exit 1; fi
     nao_contem 'group create'
