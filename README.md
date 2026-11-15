@@ -153,6 +153,8 @@ A imagem de um container contém o que ele precisa para iniciar. O volume fica s
 
 ![Arquitetura do Refúgio: API, PostgreSQL, rede, volume e implantação Azure](docs/devops/arquitetura.png)
 
+[Abrir o diagrama em tamanho original](docs/devops/arquitetura.png).
+
 O diagrama representa a implantação que foi validada e depois removida. Flutter e Arduino aparecem como componentes externos propostos; este repositório não comprova essas integrações. O banco Oracle de outras disciplinas não participa deste ambiente.
 
 Na nuvem, o NSG funciona como um filtro de rede associado à interface da VM: permite SSH na porta `22` a partir do IP administrativo e acesso à API na porta `8080`. Não há liberação pública da porta `5432`. No computador, a API é publicada em `127.0.0.1`, acessível apenas localmente.
@@ -160,45 +162,38 @@ Na nuvem, o NSG funciona como um filtro de rede associado à interface da VM: pe
 O Compose usa nomes fixos para containers, rede e volume. Não inicie outra cópia com os mesmos nomes no mesmo computador ou VM.
 
 <details>
-<summary>Consultar o diagrama em outros formatos e o código Mermaid</summary>
+<summary>Outros formatos e visão simplificada em Mermaid</summary>
 
 O diagrama também está disponível em [HTML](docs/devops/arquitetura.html), [SVG](docs/devops/arquitetura.svg) e [PNG](docs/devops/arquitetura.png). Para gerar um PDF, abra o HTML no navegador, use **Imprimir → Salvar como PDF**, escolha paisagem e habilite os gráficos de fundo.
 
+A imagem principal mostra a implantação completa. O Mermaid abaixo resume a comunicação entre os containers e os acessos. A VM da validação já foi removida.
+
 ```mermaid
-flowchart LR
-    cliente["Swagger / Postman / navegador"]
-    flutter["Flutter — externo, integração a comprovar"]
-    gateway["Arduino → USB/Serial → gateway — externo/proposto"]
-    internet(("Internet"))
-    admin["Administração — SSH / túnel"]
-    subgraph azure["Microsoft Azure — validação concluída; recursos removidos"]
-      subgraph rg["Grupo da sessão: refugio-validacao; parametrizável"]
-        ip["IP público Standard estático"]
-        nsg["NSG associado à NIC\n22: IP administrativo /32\n8080: demonstração pública\n5432: sem regra de entrada"]
-        subgraph vm["VM Ubuntu 24.04 — B2als v2 / Chile Central"]
-          ssh["sshd :22"]
-          subgraph engine["Docker Engine + Compose"]
-            subgraph net["Rede bridge refugio-net"]
-              api["refugio-api :8080\nSpring Boot / JRE 25\nUID 10001 não-root"]
-              db["refugio-db :5432\nPostgreSQL 16\nprocesso UID 999 postgres"]
-            end
-            volume[("Volume refugio-pgdata\n/var/lib/postgresql/data")]
-          end
-          loopback["127.0.0.1:5432\nacesso somente no host"]
-        end
-      end
+%%{init: {"theme": "base", "themeVariables": {"fontFamily": "Segoe UI, Arial, sans-serif", "fontSize": "22px", "primaryTextColor": "#18304b", "lineColor": "#64748b", "clusterBkg": "#f1f7ff", "clusterBorder": "#b4d0f3", "edgeLabelBackground": "#ffffff"}, "flowchart": {"htmlLabels": true, "curve": "linear", "nodeSpacing": 48, "rankSpacing": 52, "wrappingWidth": 340, "subGraphTitleMargin": {"top": 12, "bottom": 24}}}}%%
+flowchart TB
+    CLIENTE["Consulta pública<br/>Swagger · Postman · navegador<br/>IP público estático"]
+    ADMIN["Administração<br/>Túnel SSH · IP autorizado /32"]
+
+    subgraph AMBIENTE["VM Azure"]
+        API["refugio-api<br/>Spring Boot · Java 25 · porta 8080<br/>Usuário não-root · pasta /app"]
+        DB[("refugio-db<br/>PostgreSQL 16 · porta 5432<br/>Host: 127.0.0.1:5432")]
+        VOL[("refugio-pgdata<br/>Volume de dados persistentes")]
+        API -->|"Rede refugio-net<br/>JDBC · db:5432"| DB
+        DB -->|"Dados fora do container"| VOL
     end
-    cliente -->|HTTP público: leitura demonstrativa| internet
-    flutter -.-> internet
-    gateway -.-> internet
-    internet --> ip
-    ip -->|porta 8080| api
-    admin -->|SSH 22 /32| ssh
-    ssh -->|túnel para login e escrita| api
-    nsg -. associação .-> vm
-    api -->|JDBC db:5432 / DNS interno| db
-    loopback --> db
-    db -->|dados persistentes| volume
+
+    CLIENTE -->|"HTTP :8080"| API
+    ADMIN -.->|"SSH :22 → :8080"| API
+
+    classDef client fill:#eff6ff,stroke:#8db8ee,color:#18304b,stroke-width:2px;
+    classDef api fill:#effbf3,stroke:#83c89c,color:#166534,stroke-width:2px;
+    classDef data fill:#f7f2ff,stroke:#b9a0e7,color:#6d28d9,stroke-width:2px;
+    classDef security fill:#fff1f6,stroke:#dfa5bf,color:#a31856,stroke-width:2px;
+    class CLIENTE client;
+    class API api;
+    class DB,VOL data;
+    class ADMIN security;
+    style AMBIENTE fill:#f1f7ff,stroke:#b4d0f3,stroke-width:2px,color:#1d4ed8;
 ```
 
 </details>
