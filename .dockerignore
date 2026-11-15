@@ -1,0 +1,14 @@
+.git
+.idea
+.vscode
+**/target
+.env
+.env.*
+*.log
+docs
+azure
+tests
+scripts
+src/test
+*.pem
+*.key

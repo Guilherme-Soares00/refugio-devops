@@ -1,0 +1,65 @@
+name: refugio-devops
+
+services:
+  db:
+    image: postgres:16
+    container_name: refugio-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-refugio}
+      POSTGRES_USER: ${POSTGRES_USER:-refugio_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Gere o .env antes de iniciar}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - refugio-pgdata:/var/lib/postgresql/data
+    networks:
+      - refugio-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  api:
+    build: .
+    image: refugio-api:devops
+    container_name: refugio-api
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://db:5432/${POSTGRES_DB:-refugio}}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-refugio_app}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Gere o .env antes de iniciar}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
+      JWT_SECRET: ${JWT_SECRET:?Gere o .env antes de iniciar}
+      JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-3600}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      APP_SEED_ENABLED: ${APP_SEED_ENABLED:-false}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=65.0 -XX:+ExitOnOutOfMemoryError}
+      SERVER_PORT: 8080
+    ports:
+      - "${API_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - refugio-net
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "4", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+networks:
+  refugio-net:
+    name: refugio-net
+
+volumes:
+  refugio-pgdata:
+    name: refugio-pgdata
