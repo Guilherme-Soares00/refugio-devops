@@ -600,7 +600,7 @@ Atualize o estado do diagrama somente depois de executar os testes pela URL púb
 
 ## Evidências
 
-### Estado real em 14/11/2026
+### Estado da validação
 
 As verificações abaixo foram executadas na máquina local com Docker Desktop Linux. **Não são evidências de Azure.** O provisionamento pago foi mantido bloqueado, sem executar criação de recursos, instalação remota ou deploy.
 
