@@ -22,7 +22,7 @@ API CitizenTech de pontos de alívio térmico, executada com Java 25 e PostgreSQ
 
 ## Estado da implantação
 
-A validação local não comprova implantação Azure. A execução em nuvem depende de autorização de custos e de publicação dos commits deste repositório. Consulte as evidências para distinguir o que foi executado do que permanece pendente.
+A aplicação foi implantada e validada em uma VM Azure temporária, incluindo acesso externo, CRUD, SELECT, persistência e reboot. **Todos os recursos da sessão foram excluídos ao concluir**, inclusive o Network Watcher automático; a consulta final confirmou zero grupos e zero recursos. O código está publicado. Para gravar ou apresentar ao vivo, será necessário recriar o ambiente com autorização específica. Consulte as evidências para os resultados reais.
 
 ## Organização
 
@@ -65,7 +65,7 @@ docker compose ps
 curl -fsS http://localhost:8080/actuator/health
 ```
 
-Esperado: dois serviços `healthy` e `{"status":"UP"}`. A publicação deste código no GitHub é um pré-requisito para clonar em outra máquina; antes do primeiro push, execute na cópia local já preparada.
+Esperado: dois serviços `healthy` e `{"status":"UP"}`. O código está publicado no GitHub. Os comandos podem ser executados em uma cópia clonada; o Dockerfile reconstrói a aplicação a partir do fonte incluído.
 
 O preparador gera senha aleatória e chave JWT Base64 com 48 bytes aleatórios. Não mostra os valores e não sobrescreve `.env` existente. `--dados-demo` habilita os usuários e dados fictícios necessários à demonstração. Sem essa opção, o seed fica desabilitado. A API local é publicada em `127.0.0.1` por padrão. O script recusa opções desconhecidas.
 
@@ -245,7 +245,7 @@ bash tests/test-azure.sh
 
 ### 8. Azure — autorização antes de custos
 
-**Não execute provisionamento sem aprovação explícita.** Os scripts possuem modo plano por padrão. Criar VM, discos e IP público pode consumir créditos; ligar uma VM também. Não se presume gratuidade do Azure for Students. Região, SKU, quotas e preço continuam pendentes de conferência na assinatura autorizada.
+**Não execute provisionamento sem aprovação explícita.** Os scripts possuem modo plano por padrão. Criar VM, discos e IP público pode consumir créditos; ligar uma VM também. Não se presume gratuidade do Azure for Students. A sessão validada usou Chile Central e Standard_B2als_v2, com quota e preços conferidos. Os recursos foram removidos ao concluir; antes de recriar, confira novamente política, quota, capacidade e preços da assinatura autorizada.
 
 O passo a passo de login, parâmetros, provisionamento, transferência do instalador, deploy e ciclo de vida está em **[seção Azure](#azure)**. Esse guia usa Azure CLI, sem cloud-init ocultando a instalação Docker. Não há CI/CD.
 
@@ -285,7 +285,7 @@ node scripts/testar-api.mjs http://localhost:18080 crud
 
 A aplicação ainda roda na VM Azure; somente o transporte administrativo é protegido por SSH. O HTTP público expõe apenas o catálogo usado na demonstração. O seed tem credenciais públicas: isso **não é uma implantação segura para dados reais**, mesmo com o túnel administrativo.
 
-#### Persistência e reinício da VM — pendentes
+#### Persistência e reinício da VM — procedimento validado
 
 Pelo computador local e com o túnel SSH ativo, prepare/verifique o registro com `node scripts/testar-api.mjs http://localhost:18080 preparar-persistencia` e depois `verificar-persistencia`, usando a mesma URL nas duas fases. Na sessão SSH remota, execute `docker compose down` sem `-v`, `docker compose up -d --wait --wait-timeout 240` e o SELECT. O instalador da VM não instala Node: os testes Node ficam no computador, não no terminal remoto. Para provar reboot, após autorização execute o reinício da VM, aguarde seu retorno, reconecte por SSH, reabra o túnel e verifique `systemctl is-enabled docker`, `docker compose ps`, endpoint público e SELECT do REF-990. `restart: unless-stopped` só reinicia automaticamente containers não deixados deliberadamente parados; depois de `compose down` será necessário `compose up` novamente.
 
@@ -304,9 +304,9 @@ docker compose ps
 docker compose exec -T db psql -U refugio_app -d refugio -c "SELECT p.codigo_publico,r.tipo FROM ponto_refugio p JOIN recurso_ponto r ON r.ponto_id=p.id WHERE p.codigo_publico='REF-990';"
 ```
 
-Reabra o túnel e confira também o endpoint público a partir do computador. Esses comandos estão documentados, mas ainda não foram executados em uma VM deste projeto.
+Reabra o túnel e confira também o endpoint público a partir do computador. Esse procedimento foi executado e aprovado em uma VM temporária deste projeto, posteriormente excluída. O resultado histórico não comprova um serviço atualmente online.
 
-**Lembrete de custo:** planeje manter a VM disponível para a demonstração de 23–27/11. Entre sessões, deallocate pode reduzir cobrança de computação, mas disco e IP podem continuar cobrados. Antes da aula, inicie com antecedência e teste o endpoint. Não exclua o grupo até concluir demonstrações e salvar os dados necessários. Exclusão do grupo é destrutiva e exige confirmação própria.
+**Lembrete de custo:** a validação foi temporária e terminou com exclusão integral dos recursos. Para gravar ou demonstrar nas apresentações de 23–27/11, recrie o ambiente com autorização específica e teste o novo IP antes de começar. Exclua os recursos ao terminar a sessão autorizada. Deallocate reduz computação, mas não remove disco/IP nem garante ausência de cobrança. A exclusão do grupo é destrutiva e apaga também os dados do volume.
 
 ### 9. Problemas frequentes
 
@@ -325,7 +325,7 @@ Reabra o túnel e confira também o endpoint público a partir do computador. Es
 
 Sem HTTPS, domínio, backup automatizado, alta disponibilidade, migrações versionadas ou monitoramento externo. Imagens por tag podem receber atualizações; registre versão efetiva no momento da demonstração. Recursos gratuitos/quota/capacidade não estão garantidos. A imagem da API não executa os testes de banco durante seu build. Dados são fictícios; a etiqueta de temperatura é didática, não índice de segurança ou recomendação médica.
 
-Nuvem, reinício real da VM, integração Flutter/Arduino, vídeo, link não listado e PDF com equipe completa só devem ser marcados concluídos após evidência real. Não é necessário modificar o projeto Java original para executar este repositório.
+Nuvem, persistência e reinício real da VM foram comprovados na validação temporária documentada. O ambiente foi removido. Integração Flutter/Arduino, vídeo, link não listado e PDF com equipe completa não são comprovados por esses testes e dependem das respectivas entregas. Não é necessário modificar o projeto Java original para executar este repositório.
 
 <a id="azure"></a>
 
@@ -552,7 +552,7 @@ Referências de sintaxe: [Azure CLI VM](https://learn.microsoft.com/cli/azure/vm
 
 ### Estado e limites
 
-**Implementado e testado localmente:** imagem Java 25, PostgreSQL 16, Compose, healthchecks, rede, volume, CRUD e SELECT. **Preparado, ainda não implantado:** grupo Azure, IP público estático, NSG e VM Ubuntu. **Externo/proposto:** Flutter e gateway Arduino; este repositório não comprova essas integrações.
+**Implementado e validado localmente e no Azure:** imagem Java 25, PostgreSQL 16, Compose, healthchecks, rede, volume, CRUD, SELECT, persistência e reboot da VM. A sessão usou Chile Central, Standard_B2als_v2, Ubuntu 24.04 e SSD de 32 GiB. **Estado atual: recursos excluídos após a validação**, conforme o plano de minimizar custos. **Externo/proposto:** Flutter e gateway Arduino; este repositório não comprova essas integrações.
 
 ```mermaid
 flowchart LR
@@ -561,11 +561,11 @@ flowchart LR
     gateway["Arduino → USB/Serial → gateway — externo/proposto"]
     internet(("Internet"))
     admin["Administração — SSH / túnel"]
-    subgraph azure["Microsoft Azure — implantação pendente"]
-      subgraph rg["Grupo de recursos dedicado refugio-*"]
+    subgraph azure["Microsoft Azure — validação concluída; recursos removidos"]
+      subgraph rg["Grupo da sessão: refugio-validacao; parametrizável"]
         ip["IP público Standard estático"]
         nsg["NSG associado à NIC\n22: IP administrativo /32\n8080: demonstração pública\n5432: sem regra de entrada"]
-        subgraph vm["VM Ubuntu LTS — tamanho/região a validar"]
+        subgraph vm["VM Ubuntu 24.04 — B2als v2 / Chile Central"]
           ssh["sshd :22"]
           subgraph engine["Docker Engine + Compose"]
             subgraph net["Rede bridge refugio-net"]
@@ -601,11 +601,11 @@ O JAR e a JVM ficam na imagem/contêiner da API. O cache Spring vive em memória
 
 ### Imagens para reutilizar
 
-Abra [arquitetura.html](docs/devops/arquitetura.html) no navegador. A visualização corresponde à topologia acima e identifica Azure como pendente. Há versões [SVG](docs/devops/arquitetura.svg) e [PNG](docs/devops/arquitetura.png) para README e gravação.
+Abra [arquitetura.html](docs/devops/arquitetura.html) no navegador. A visualização corresponde à topologia validada e identifica o ambiente como removido; não representa uma VM atualmente ativa. Há versões [SVG](docs/devops/arquitetura.svg) e [PNG](docs/devops/arquitetura.png) para README e gravação.
 
 Para PDF: abra o HTML no Chrome, pressione Ctrl+P, escolha Salvar como PDF, orientação paisagem, sem cabeçalhos/rodapés e habilite gráficos de fundo. Confira a legibilidade antes de anexar. O Mermaid acima também é renderizado pelo GitHub e pode ser exportado pelo Mermaid Live Editor, sem enviar segredos ou identificadores de conta.
 
-Atualize o estado do diagrama somente depois de executar os testes pela URL pública e na VM real.
+Os testes por IP público e na VM real foram concluídos. A arquitetura mostra o que foi validado antes da exclusão; o ambiente precisa ser recriado para gravação ou apresentação ao vivo.
 
 <a id="evidencias"></a>
 
@@ -613,7 +613,7 @@ Atualize o estado do diagrama somente depois de executar os testes pela URL púb
 
 ### Estado da validação
 
-As verificações abaixo foram executadas na máquina local com Docker Desktop Linux. **Não são evidências de Azure.** O provisionamento pago foi mantido bloqueado, sem executar criação de recursos, instalação remota ou deploy.
+As verificações desta primeira seção descrevem a base local. A seção de validação Azure registra a execução real em nuvem e a exclusão integral do ambiente temporário. Não há VM ativa depois da limpeza.
 
 | Verificação executada | Resultado observado |
 | --- | --- |
@@ -701,18 +701,56 @@ Para gravação, demonstre também os payloads do fluxo manual do guia ou o Swag
 
 Use a seção 6 do guia: preparar uma única vez, SELECT antes, `down` **sem `-v`**, `up -d`, verificar novamente e SELECT depois. Se REF-990 já existir, não repita o preparo; execute diretamente `verificar-persistencia`. Confirme os mesmos IDs e valores.
 
-### Evidências de nuvem — ainda pendentes
+### Validação Azure — concluída, com recursos removidos
 
-- [ ] Código revisado e publicado no repositório DevOps, com autorização de push.
-- [ ] Região, SKU, quotas e estimativa de VM/disco/IP conferidos.
-- [ ] Autorização específica para criar recursos e consumir créditos.
-- [ ] VM efetivamente criada por Azure CLI, IP estático e regras NSG conferidas.
-- [ ] Docker e Compose instalados explicitamente dentro da VM.
-- [ ] API e banco saudáveis dentro da VM, não somente no computador.
-- [ ] GET público de saúde e catálogo a partir do computador externo.
-- [ ] Swagger carregado e CRUD na aplicação remota, com login/token pelo túnel SSH.
-- [ ] SELECT direto no banco da VM e persistência após recriar containers.
-- [ ] Reboot real da VM e retorno automático dos containers/serviço Docker.
+- [x] Código revisado e publicado no repositório DevOps, com autorização de push.
+- [x] Região, SKU, quotas e estimativa de VM/disco/IP conferidos.
+- [x] Autorização específica para criar recursos e consumir créditos.
+- [x] VM efetivamente criada por Azure CLI, IP estático e regras NSG conferidas.
+- [x] Docker e Compose instalados explicitamente dentro da VM.
+- [x] API e banco saudáveis dentro da VM, não somente no computador.
+- [x] GET público de saúde e catálogo a partir do computador externo.
+- [x] Swagger carregado e CRUD na aplicação remota, com login/token pelo túnel SSH.
+- [x] SELECT direto no banco da VM e persistência após recriar containers.
+- [x] Reboot real da VM e retorno automático dos containers/serviço Docker.
 - [ ] Vídeo não listado em 720p ou mais, narrado, links acessíveis e PDF completo.
 
-Não substitua essas evidências por execução local, teste com doubles, diagrama ou saída esperada.
+Vídeo, PDF final e disponibilidade para a gravação/apresentação continuam dependentes das respectivas etapas; os testes concluídos não as substituem.
+
+
+#### Resultado real em nuvem
+
+| Item | Evidência observada |
+| --- | --- |
+| Plataforma | Ubuntu 24.04 LTS x64, Chile Central, Standard_B2als_v2: 2 vCPUs e 4 GB |
+| Disco/IP | SSD Standard de 32 GiB; IP Standard estático; ambos excluídos ao final |
+| Instalação | Docker 29.9.3 e Compose 5.7.1 instalados pelo script dentro da VM |
+| Containers | refugio-api e refugio-db saudáveis; API pública em 8080; banco apenas em 127.0.0.1:5432 |
+| Acesso externo | Saúde e catálogo consultados pelo IP público a partir do computador local |
+| Swagger público | 17 operações renderizadas em navegador real; captura abaixo |
+| CRUD/segurança | 27 verificações HTTP aprovadas na aplicação remota; autenticação pelo túnel SSH |
+| Persistência | REF-990, ponto 13 e recurso 22 preservados após recriação e reboot |
+| Seed | Mesmas contagens antes/depois: 10 usuários, 11 pontos, 21 recursos, 10 medições, 10 ocorrências |
+| Reboot real | Ambos retornaram healthy e unless-stopped; Docker habilitado no boot, sem compose up após reboot |
+| Limpeza | Grupo dedicado e grupo automático NetworkWatcherRG removidos; consulta final: zero grupos e zero recursos |
+
+O IP mostrado na captura pertence à sessão temporária já encerrada; não é endereço ativo da entrega. Para gravar ou apresentar, recrie o ambiente com autorização própria e atualize o IP. Não trate captura antiga como prova de serviço atualmente online.
+
+![Swagger Azure da validação temporária](docs/devops/evidencias/swagger-azure.png)
+
+Arquivos verificáveis:
+
+- [Resumo da validação](docs/devops/evidencias/azure-resumo.json) e [consulta final de limpeza](docs/devops/evidencias/azure-limpeza.json).
+- [CRUD real: método, caminho e status](docs/devops/evidencias/azure-crud.json).
+- [Infraestrutura e regras NSG, com IP administrativo omitido](docs/devops/evidencias/azure-infraestrutura.json).
+- [SELECT antes](docs/devops/evidencias/azure-select-antes.txt), [após recriação](docs/devops/evidencias/azure-select-apos-recriacao.txt) e [após reboot](docs/devops/evidencias/azure-select-apos-reboot.txt): arquivos idênticos.
+- [Verificação HTTP após recriação](docs/devops/evidencias/azure-persistencia-recriacao.json) e [após reboot](docs/devops/evidencias/azure-persistencia-reboot.json).
+- [Saúde e reinício automático](docs/devops/evidencias/azure-reboot.txt) e [trechos reais dos logs](docs/devops/evidencias/azure-logs.txt).
+
+#### Custo e encerramento
+
+Referências públicas consultadas para a configuração usada: VM Linux US$ 0,0526/h; IP Standard US$ 0,005/h; SSD E4 LRS US$ 3,36/mês. **SUPOSIÇÃO de cálculo:** dividir o disco por 730 horas/mês, resultando em referência conjunta aproximada de US$ 0,062203/h.
+
+O intervalo do início do provisionamento até a limpeza do grupo principal foi de 759 segundos, incluindo consultas e espera do plano de controle. A aplicação dessa referência ao intervalo produz **US$ 0,013114 teóricos**, não uma cobrança conferida. Transações de disco, tráfego, impostos, arredondamentos e atraso de medição não estão incluídos. Não se presume gratuidade nem saldo de créditos.
+
+O Azure criou automaticamente NetworkWatcherRG fora do grupo dedicado. Como a assinatura estava sem grupos antes da sessão e esse grupo continha somente NetworkWatcher_chilecentral, ele também foi removido. A leitura final da assinatura confirmou zero grupos e zero recursos. Nenhuma chave privada, senha ou JWT integra estes arquivos públicos.

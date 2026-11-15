@@ -1,0 +1,40 @@
+{
+  "grupo": "refugio-validacao",
+  "regiao": "chilecentral",
+  "tamanho": "Standard_B2als_v2",
+  "validacao": "APROVADA",
+  "commit_validado": "4abd47f9cdd49638943b3c8c2958df1c01f2a071",
+  "swagger_operacoes": 17,
+  "segundos_sessao_ate_limpeza": 759,
+  "etapas": [
+    {
+      "teste": "crud-azure",
+      "verificacoes": 27,
+      "resultado": "APROVADO"
+    },
+    {
+      "teste": "preparo-persistencia-azure",
+      "verificacoes": 4,
+      "resultado": "APROVADO"
+    },
+    {
+      "teste": "persistencia-recriacao",
+      "verificacoes": 4,
+      "resultado": "APROVADO"
+    },
+    {
+      "teste": "persistencia-reboot",
+      "verificacoes": 4,
+      "resultado": "APROVADO"
+    }
+  ],
+  "estado_atual": "Recursos excluídos após a validação",
+  "limpeza_final": {
+    "grupo_validacao_existe": false,
+    "grupo_watcher_existe": false,
+    "grupos_restantes": 0,
+    "recursos_restantes": 0
+  },
+  "estimativa_usd_hora": 0.062203,
+  "cobranca_real": "Não conferida; estimativa não é fatura"
+}

@@ -1,0 +1,4 @@
+Trechos de mensagens reais, sem marcadores de calendário.
+Tomcat started on port 8080 (http) with context path '/'
+Started RefugioApplication in 10.728 seconds (process running for 13.289)
+database system is ready to accept connections
