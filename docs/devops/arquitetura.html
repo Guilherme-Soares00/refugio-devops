@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Refúgio — arquitetura de implantação</title><style>body{margin:0;background:#020617}svg{display:block;width:100%;height:auto}@media print{@page{size:landscape;margin:5mm}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style></head><body><svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" role="img" aria-labelledby="title desc">
+<title id="title">Refúgio — arquitetura Docker e Azure</title>
+<desc id="desc">API Java 25 e PostgreSQL 16 testados localmente. VM Azure, IP estático e NSG preparados, ainda não implantados. Flutter e Arduino são integrações externas a comprovar.</desc>
+<defs>
+<pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern>
+<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#94a3b8"/></marker>
+<style>text{font-family:Consolas,monospace;fill:#e2e8f0;font-size:17px}.title{font-size:30px;font-weight:bold}.label{font-size:21px;font-weight:bold}.muted{fill:#94a3b8;font-size:15px}.pending{fill:#fbbf24}.line{fill:none;stroke:#94a3b8;stroke-width:2;marker-end:url(#arrow)}.box{fill:#0f172a;stroke-width:2}</style>
+</defs>
+<rect width="1400" height="900" fill="#020617"/><rect width="1400" height="900" fill="url(#grid)"/>
+<text x="30" y="48" class="title">REFÚGIO / Arquitetura de implantação</text>
+<text x="30" y="80" class="muted">Local validado • Azure pendente de autorização e implantação • Dados demonstrativos</text>
+<rect x="330" y="115" width="1040" height="690" rx="18" fill="#111827" stroke="#fbbf24" stroke-dasharray="9 5"/>
+<text x="355" y="150" class="label pending">Microsoft Azure / grupo dedicado refugio-*</text>
+<text x="355" y="177" class="muted">IP Standard estático + VM Ubuntu LTS / região e tamanho a validar</text>
+<rect x="620" y="235" width="720" height="530" rx="14" fill="#020617" stroke="#64748b"/>
+<text x="645" y="269" class="label">VM Linux / Docker Engine + Compose</text>
+<rect x="640" y="290" width="680" height="265" rx="12" fill="#0f172a" stroke="#22d3ee" stroke-dasharray="5 5"/>
+<text x="660" y="321" fill="#22d3ee">Rede bridge: refugio-net</text>
+<path class="line" d="M270 260H365"/>
+<path class="line" d="M575 260H595V400H665"/>
+<text x="284" y="244" class="muted">HTTP</text>
+<path class="line" d="M270 445H300V300H365" stroke-dasharray="5 5"/>
+<path class="line" d="M270 610H365" stroke-dasharray="5 5"/>
+<path class="line" d="M575 610H600V505H665" stroke-dasharray="5 5"/>
+<path class="line" d="M940 415H1010"/>
+<text x="949" y="390" class="muted">JDBC</text>
+<text x="949" y="452" class="muted">db:5432</text>
+<path class="line" d="M1150 510V600"/>
+<text x="1168" y="572" class="muted">dados</text>
+<path d="M575 730H620" fill="none" stroke="#fb7185" stroke-width="2" stroke-dasharray="5 5"/>
+<rect x="30" y="200" width="240" height="120" rx="10" class="box" stroke="#22d3ee"/>
+<text x="50" y="237" class="label">Clientes</text><text x="50" y="269">Swagger / Postman</text><text x="50" y="297" class="muted">Internet → leitura pública</text>
+<rect x="30" y="370" width="240" height="150" rx="10" class="box" stroke="#94a3b8" stroke-dasharray="5 5"/>
+<text x="50" y="407" class="label">Externos</text><text x="50" y="439">Flutter</text><text x="50" y="470">Arduino → gateway</text><text x="50" y="499" class="muted">Integração a comprovar</text>
+<rect x="30" y="570" width="240" height="115" rx="10" class="box" stroke="#fb7185"/>
+<text x="50" y="607" class="label">Administração</text><text x="50" y="638">SSH / túnel :22</text><text x="50" y="665" class="muted">Origem restrita ao IP /32</text>
+<rect x="365" y="210" width="210" height="100" rx="10" class="box" stroke="#fbbf24"/>
+<text x="383" y="244" class="label">IP estático</text><text x="383" y="277">:8080 → API</text>
+<rect x="365" y="565" width="210" height="85" rx="10" class="box" stroke="#fb7185"/>
+<text x="383" y="598" class="label">Túnel → VM</text><text x="383" y="628" class="muted">sshd executa na VM</text>
+<rect x="365" y="685" width="210" height="95" rx="10" class="box" stroke="#fb7185" stroke-dasharray="5 5"/>
+<text x="383" y="714" class="label">NSG → NIC</text><text x="383" y="742" class="muted">22 /32 + 8080 público</text><text x="383" y="765" class="muted">5432 não liberada</text>
+<rect x="665" y="350" width="275" height="160" rx="10" class="box" stroke="#34d399"/>
+<text x="687" y="388" class="label">refugio-api :8080</text><text x="687" y="421">Spring Boot / JRE 25</text><text x="687" y="452">UID 10001 / não-root</text><text x="687" y="483" class="muted">WORKDIR /app + healthcheck</text>
+<rect x="1010" y="350" width="285" height="160" rx="10" class="box" stroke="#a78bfa"/>
+<text x="1030" y="388" class="label">refugio-db :5432</text><text x="1030" y="421">PostgreSQL 16</text><text x="1030" y="452">Processo: postgres / 999</text><text x="1030" y="483" class="muted">Host: 127.0.0.1:5432</text>
+<rect x="1010" y="600" width="285" height="130" rx="10" class="box" stroke="#a78bfa"/>
+<text x="1030" y="638" class="label">refugio-pgdata</text><text x="1030" y="671">Volume nomeado</text><text x="1030" y="702" class="muted">/var/lib/postgresql/data</text>
+<text x="660" y="610" class="muted">restart: unless-stopped</text><text x="660" y="639" class="muted">Dependência: db saudável</text><text x="660" y="668" class="muted">Segredos por ambiente</text><text x="660" y="697" class="muted">Sem HTTPS / sem Oracle</text>
+<text x="30" y="850" class="muted">Linhas contínuas: topologia preparada e base local validada. Tracejadas externas: integração proposta.</text>
+<text x="30" y="879" class="pending">A moldura Azure representa o destino de implantação, não uma VM já provisionada.</text>
+</svg>
+</body></html>
