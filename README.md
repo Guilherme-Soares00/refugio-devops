@@ -9,6 +9,7 @@ API CitizenTech de pontos de alívio térmico, executada com Java 25 e PostgreSQ
 ## Navegação
 
 - [Como executar](#como-executar)
+- [Azure](#azure)
 - [Arquitetura](#arquitetura)
 - [Evidências](#evidencias)
 
@@ -308,6 +309,214 @@ Na VM, execute o mesmo teste `down` sem `-v`, `up -d` e SELECT. Para provar rebo
 Sem HTTPS, domínio, backup automatizado, alta disponibilidade, migrações versionadas ou monitoramento externo. Imagens por tag podem receber atualizações; registre versão efetiva no momento da demonstração. Recursos gratuitos/quota/capacidade não estão garantidos. A imagem da API não executa os testes de banco durante seu build. Dados são fictícios; a etiqueta de temperatura é didática, não índice de segurança ou recomendação médica.
 
 Nuvem, reinício real da VM, integração Flutter/Arduino, vídeo, link não listado e PDF com equipe completa só devem ser marcados concluídos após evidência real. Não é necessário modificar o projeto Java original para executar este repositório.
+
+<a id="azure"></a>
+
+## Azure
+
+### Estado e escopo
+
+**Preparação local, não implantação comprovada. Custo: estimativa pendente.** Nenhuma assinatura, região disponível, quota, capacidade ou preço foi confirmado por estes testes. Não há autorização implícita para consumir créditos, fazer login, registrar providers, provisionar, instalar ou publicar código.
+
+A entrega executa uma VM Ubuntu 24.04 LTS amd64, Docker instalado explicitamente nela e Compose com Java 25 e PostgreSQL 16. O projeto Compose é `refugio-devops`; os containers são `refugio-api` e `refugio-db`; a rede global é `refugio-net`; o volume global é `refugio-pgdata`. Não execute um segundo projeto com esses nomes no mesmo host. PostgreSQL só publica `127.0.0.1:5432`; API publica `8080`. Ambos usam `restart: unless-stopped` no Compose.
+
+Os cinco scripts operacionais usam `--plano` por padrão. Nesse modo não chamam nem mesmo `az`, não consultam a nuvem, não acessam o GitHub e não instalam nada. `_comum.sh` é biblioteca: mantenha-a ao lado dos demais scripts. Não há login, mudança de assinatura global, registro de provider, geração de chave, SSH ou limpeza automática dentro dos scripts.
+
+### 1. Parâmetros — terminal local Git Bash
+
+Execute da raiz do repositório. No Windows, use caminhos como `C:/Users/seu-usuario/.ssh/chave.pub` ou caminhos válidos no Git Bash. Os scripts desativam a conversão automática de argumentos MSYS para preservar CIDRs e consultas.
+
+| Variável | Valor padrão | O que informar/verificar |
+| --- | --- | --- |
+| `AZURE_SUBSCRIPTION_ID` | nenhum | UUID da assinatura autorizada; formato validado antes da primeira chamada Azure |
+| `RESOURCE_GROUP` | `refugio-devops` | grupo dedicado **novo**, prefixo `refugio-`, letras minúsculas, números e hífen |
+| `LOCATION` | `brazilsouth` | região permitida pela assinatura; exemplo de configuração, não disponibilidade confirmada |
+| `VM_SIZE` | `Standard_B2s` | tamanho x64 com memória para build Java e banco; capacidade e preço pendentes |
+| `VM_NAME` | `refugio-vm` | nome da VM, prefixo `refugio-` |
+| `ADMIN_USER` | `refugioadmin` | usuário Linux não root |
+| `ADMIN_CIDR` | nenhum | seu IPv4 público administrativo com `/32`; sem rede ampla, zeros iniciais ou octetos inválidos |
+| `SSH_PUBLIC_KEY` | nenhum | caminho de arquivo `.pub` existente, fornecido por você; nunca a chave privada |
+
+Opcionais: `AZURE_IMAGE=Canonical:ubuntu-24_04-lts:server:latest` aceita essa família Ubuntu LTS, com arquitetura x64 conferida na execução; `AZURE_DISK_SKU=StandardSSD_LRS` aceita somente `StandardSSD_LRS` ou `Standard_LRS`. Os padrões ficam no topo de `_comum.sh`. Nenhum tamanho/região é trocado automaticamente em caso de erro.
+
+Preparação de variáveis sem operação Azure, no terminal local Git Bash:
+
+```bash
+export AZURE_SUBSCRIPTION_ID='SUBSTITUA-PELO-UUID-AUTORIZADO'
+export RESOURCE_GROUP=refugio-devops
+export LOCATION=brazilsouth
+export VM_SIZE=Standard_B2s
+export VM_NAME=refugio-vm
+export ADMIN_USER=refugioadmin
+export ADMIN_CIDR='SEU-IPV4-PUBLICO/32'
+export SSH_PUBLIC_KEY="$HOME/.ssh/sua-chave-existente.pub"
+bash azure/01-provisionar.sh --plano
+```
+
+Os marcadores não são valores válidos e precisam ser substituídos. Não grave valores privados ou segredos no repositório. A autenticação da Azure CLI deve ocorrer separadamente, apenas quando autorizada. Antes da primeira execução real, confira a ajuda da CLI instalada para os comandos utilizados, suas permissões e os providers já registrados. Esses scripts não instalam nem fixam versão da CLI.
+
+### 2. Autenticação, disponibilidade e custo — antes de provisionar
+
+Estes comandos são executados no terminal **local Git Bash, WSL ou Azure Cloud Shell**, com uma conta e assinatura autorizadas. Não criam VM. Autenticação é separada de autorização para consumir créditos. Se a sessão já estiver autenticada, não repita login.
+
+```bash
+az login --use-device-code
+az account list --query '[].{nome:name,id:id,estado:state}' --output table
+az account show --subscription "$AZURE_SUBSCRIPTION_ID" --query '{nome:name,estado:state}' --output table
+az account list-locations --subscription "$AZURE_SUBSCRIPTION_ID" --query '[].{regiao:name,nome:displayName}' --output table
+az vm list-skus --subscription "$AZURE_SUBSCRIPTION_ID" --location "$LOCATION" --size "$VM_SIZE" --resource-type virtualMachines --all --output table
+az vm list-usage --subscription "$AZURE_SUBSCRIPTION_ID" --location "$LOCATION" --output table
+```
+
+A lista geral de regiões não garante que a política do Azure for Students permita criação nelas; confira restrições da assinatura, quotas por família e região. Um SKU listado ainda pode falhar por falta de capacidade. Se região/tamanho forem bloqueados, interrompa e reveja `LOCATION`/`VM_SIZE` antes de outra tentativa, sem trocar para uma opção mais cara automaticamente.
+
+A estimativa deve separar VM Linux, disco de SO, IP público Standard e tráfego. Consulte [preços de VM Linux](https://azure.microsoft.com/pricing/details/virtual-machines/linux/), [discos gerenciados](https://azure.microsoft.com/pricing/details/managed-disks/) e [IP público](https://azure.microsoft.com/pricing/details/ip-addresses/), selecionando a região e o tamanho efetivos. Sem essa consulta e confirmação de saldo, não há preço ou gratuidade garantidos. A proposta inicial de `Standard_B2s` é hipótese de dimensionamento, não autorização de custos.
+
+### 3. Criar infraestrutura — terminal local Git Bash, somente após autorização de custos
+
+**O comando abaixo cria recursos cobrados. Não é etapa de teste local.** Ele exige simultaneamente flag, autorização de custos e confirmação exata do grupo:
+
+```bash
+AUTORIZAR_CUSTOS=SIM CONFIRMAR_CRIACAO="CRIAR:$RESOURCE_GROUP" \
+  bash azure/01-provisionar.sh --executar
+```
+
+Antes de criar o grupo, o script faz somente leituras: assinatura/id/estado, ausência do grupo, registro dos providers Compute/Network, imagem x64, SKU x64 sem restrições e quadro de quotas. A disponibilidade de quota não garante alocação, nem as leituras substituem a avaliação de políticas ou de custos. Grupo existente, inclusive com a tag correta, é recusado. Não há retomada automática de implantação parcial.
+
+A infraestrutura inclui:
+
+- Grupo e recursos identificados por `projeto=refugio-devops`.
+- IP público IPv4 Standard estático; NIC, VNet e subnet dedicadas.
+- NSG com duas permissões customizadas de entrada: TCP 22 de `ADMIN_CIDR` e TCP 8080 de `Internet`. Não há regra pública para 5432; permanecem as regras padrão da plataforma para rede virtual e bloqueio externo.
+- VM Ubuntu x64 com chave pública existente e autenticação SSH; sem senha gerada.
+- Disco simples Standard e opções `Delete` para disco de SO e NIC, conferidas por leitura após criar a VM.
+
+O IP é mostrado apenas quando retornado por uma execução real autorizada. Não há IP de exemplo tratado como real. O script não instala Docker nem abre uma sessão SSH. Se falhar após começar a criação, podem restar recursos cobrados; não há exclusão automática. Analise o grupo e autorize a limpeza em separado.
+
+### 4. Transferir e instalar Docker — contextos local e remoto separados
+
+Somente depois de uma VM real autorizada e pronta: confira a identidade/fingerprint SSH por canal confiável; nunca desative a verificação do host. Use sua chave privada existente apenas na máquina local. Não envie `.env`, chave privada ou token para o Git.
+
+Antes da primeira conexão, no terminal **local autenticado no Azure**, obtenha a impressão digital da chave de host pelo canal autenticado. Esse comando roda apenas uma consulta ao arquivo público dentro da VM já autorizada; não é uma verificação a executar antes de criar a VM:
+
+```bash
+az vm run-command invoke --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$RESOURCE_GROUP" --name "$VM_NAME" --command-id RunShellScript --scripts 'ssh-keygen -l -E sha256 -f /etc/ssh/ssh_host_ed25519_key.pub' --query 'value[0].message' --output tsv
+```
+
+Compare o fingerprint ED25519 retornado com o mostrado pelo SSH antes de responder `yes`. Ele identifica o servidor, não a chave pessoal do usuário. Se recriar a VM, confira novamente; não contorne um alerta de mudança de identidade.
+
+Terminal **local Git Bash**, ajustando o IP real retornado e o caminho da chave privada, e somente após autorizar SSH:
+
+```bash
+export PUBLIC_IP='SUBSTITUA-PELO-IP-REAL'
+export SSH_PRIVATE_KEY="$HOME/.ssh/sua-chave-existente"
+export DESTINO_SSH="$ADMIN_USER@$PUBLIC_IP"
+ssh -i "$SSH_PRIVATE_KEY" "$DESTINO_SSH"
+```
+
+Na sessão **remota Ubuntu**, crie somente a pasta de scripts e saia:
+
+```bash
+mkdir -p "$HOME/azure-refugio"
+exit
+```
+
+De volta ao terminal **local Git Bash**, transfira os scripts com a biblioteca antes de conectar novamente:
+
+```bash
+scp -i "$SSH_PRIVATE_KEY" azure/_comum.sh azure/02-instalar-docker.sh azure/03-deploy.sh "$DESTINO_SSH:azure-refugio/"
+ssh -i "$SSH_PRIVATE_KEY" "$DESTINO_SSH"
+```
+
+Na sessão **remota Ubuntu 24.04 LTS amd64**, execute o plano e depois, apenas com autorização para alterar a VM, a instalação. `DOCKER_USER` deve ser o usuário Linux já existente; `id -un` captura o usuário antes do sudo:
+
+```bash
+cd "$HOME/azure-refugio"
+bash 02-instalar-docker.sh --plano
+sudo env AUTORIZAR_ALTERACAO_LOCAL=SIM CONFIRMAR_DOCKER=INSTALAR-DOCKER-NA-VM DOCKER_USER="$(id -un)" \
+  bash 02-instalar-docker.sh --executar
+```
+
+O instalador exige root/Linux/Ubuntu 24.04/amd64 e usuário não root validado. Usa o repositório HTTPS oficial Docker com chave `signed-by`, instala Docker Engine, Buildx, Compose plugin, curl, git e OpenSSL, habilita o serviço no boot e verifica serviço/grupo. O grupo `docker` concede privilégios equivalentes a root. Saia e reconecte por SSH para aplicar a nova associação; não rode deploy com sudo.
+
+### 5. Deploy — sessão remota Ubuntu, usuário no grupo docker
+
+O repositório remoto precisa conter a versão aprovada/publicada. Um repositório vazio não permite deploy: publicação é uma autorização separada e não é feita por estes scripts.
+
+```bash
+cd "$HOME/azure-refugio"
+bash 03-deploy.sh --plano
+AUTORIZAR_ALTERACAO_LOCAL=SIM CONFIRMAR_DEPLOY=DEPLOY-REFUGIO-NA-VM \
+  bash 03-deploy.sh --executar
+```
+
+O destino fixo é `$HOME/refugio-devops`; a origem fixa é `https://github.com/Guilherme-Soares00/refugio-devops.git`, branch `main`. O script recusa links, diretório estranho, origin diferente, branch diferente e alterações locais; atualização usa fetch e merge `--ff-only`, nunca reset ou remoção de trabalho local.
+
+Ele chama `bash scripts/preparar-ambiente.sh --dados-demo --publicar-api`. O helper cria `.env` com permissão 600 somente se ausente; arquivo existente não é sobrescrito, exibido nem enviado. O deploy confere seu hash antes/depois sem mostrar o hash/conteúdo. Se o arquivo existente tiver outra permissão, ajuste-a conscientemente na VM antes de repetir. São fornecidas ao Compose somente variáveis não secretas: projeto `refugio-devops`, carga demo ativa, API em `0.0.0.0:8080`, banco publicado só no loopback 5432 definido no Compose. Credenciais existentes permanecem no `.env`.
+
+A subida usa `docker compose up -d --build --wait --wait-timeout 300`. Esse timeout limita a espera de saúde, não o tempo total do build. Depois são consultados os serviços e os endpoints locais `/actuator/health` e `/api/pontos` com curl, instalado na etapa anterior. Sucesso local não comprova acessibilidade externa.
+
+Terminal **local**, leitura pública sem autenticação, após trocar o IP:
+
+```bash
+curl --fail "http://$PUBLIC_IP:8080/api/pontos"
+```
+
+Não envie senha/JWT pelo IP público HTTP. Para autenticação e escrita administrativas, use HTTPS ou um túnel SSH autorizado, por exemplo no terminal **local Git Bash**:
+
+```bash
+ssh -i "$SSH_PRIVATE_KEY" -N -L 127.0.0.1:18080:127.0.0.1:8080 "$DESTINO_SSH"
+```
+
+Enquanto o túnel estiver ativo, use `http://127.0.0.1:18080` no cliente administrativo. Não imprima tokens, `.env` ou resultados de login em logs públicos.
+
+### 6. Parar, iniciar e excluir — terminal local Git Bash
+
+Planos seguros, sem chamadas Azure:
+
+```bash
+bash azure/parar-iniciar.sh parar --plano
+bash azure/parar-iniciar.sh iniciar --plano
+bash azure/limpar.sh --plano "$RESOURCE_GROUP"
+```
+
+**Desalocar** requer autorização própria; não equivale a eliminar todos os custos. Disco, volume e IP continuam existentes e podem ser cobrados:
+
+```bash
+AUTORIZAR_ALTERACAO_AZURE=SIM CONFIRMAR_PARADA="PARAR:$RESOURCE_GROUP:$VM_NAME" \
+  bash azure/parar-iniciar.sh parar --executar
+```
+
+**Iniciar** volta a gerar cobrança de computação e exige nova confirmação de custos:
+
+```bash
+AUTORIZAR_CUSTOS=SIM CONFIRMAR_INICIO="INICIAR:$RESOURCE_GROUP:$VM_NAME" \
+  bash azure/parar-iniciar.sh iniciar --executar
+```
+
+Ambas as ações validam assinatura, prefixo, existência e tag do grupo e da VM, e releem o estado de energia antes de declarar sucesso. Reiniciar não remove o volume Postgres; não use `docker compose down -v` se pretende demonstrar persistência.
+
+**Excluir é irreversível:** apaga o grupo inteiro e todos os dados do volume, não apenas a VM. Exige nome explícito igual à variável, confirmação exata e tag de propriedade. Remover somente a VM não garante remoção do IP público nem dos demais recursos.
+
+```bash
+AUTORIZAR_EXCLUSAO=SIM CONFIRMAR_EXCLUSAO="EXCLUIR:$RESOURCE_GROUP" \
+  bash azure/limpar.sh --executar "$RESOURCE_GROUP"
+```
+
+O script lista os recursos, aguarda a exclusão síncrona, verifica grupo ausente e lista vazia consultando a assinatura e filtrando o nome do grupo. A consulta final não usa o endpoint de um grupo já removido. Falha em confirmar a ausência não é apresentada como sucesso. Não há limpeza automática depois de outro script falhar.
+
+### 7. Validação exclusivamente local
+
+Terminal **local Git Bash**, sem login, rede, instalação, Docker ou chamadas Azure reais:
+
+```bash
+for arquivo in azure/*.sh tests/test-azure.sh; do bash -n "$arquivo" || exit; done
+bash tests/test-azure.sh
+```
+
+Os testes exportam doubles Bash que bloqueiam comandos reais, verificam plano/autorizações incompletas e simulam leituras/escritas Azure, NSG, escopo de assinatura, rejeição de grupo existente, imagem ARM, erro parcial sem limpeza, ciclo de vida, tags e exclusão confirmada. São testes de controle de fluxo, não instalação Linux real, compilação em VM, validação de respostas reais da Azure, persistência em nuvem ou prova de implantação/custo. Esses itens continuam dependentes de autorização e execução no ambiente correspondente.
+
+Referências de sintaxe: [Azure CLI VM](https://learn.microsoft.com/cli/azure/vm), [Azure CLI VNet](https://learn.microsoft.com/cli/azure/network/vnet), [instalação oficial do Docker no Ubuntu](https://docs.docker.com/engine/install/ubuntu/). Consulte também a ajuda da CLI instalada antes de autorizar operações reais.
 
 <a id="arquitetura"></a>
 
