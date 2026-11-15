@@ -1,0 +1,10 @@
+REF-001|cidadao01@example.test|SEM_AGUA|MEDIA|ABERTA|Bebedouro não está funcionando|2026-11-09T11:01:00Z|
+REF-002|cidadao02@example.test|SEM_SOMBRA|MEDIA|EM_ANALISE|Área de sombra temporariamente bloqueada|2026-11-09T11:02:00Z|
+REF-003|cidadao03@example.test|ACESSO_BLOQUEADO|ALTA|ABERTA|Rampa de acesso está obstruída|2026-11-09T11:03:00Z|
+REF-004|cidadao04@example.test|OUTRO|BAIXA|RESOLVIDA|Sinalização do espaço ilegível|2026-11-09T11:04:00Z|2026-11-09T14:04:00Z
+REF-005|cidadao05@example.test|SEM_AGUA|MEDIA|EM_ANALISE|Ponto sem reposição de água|2026-11-09T11:05:00Z|
+REF-006|cidadao06@example.test|SEM_SOMBRA|MEDIA|ABERTA|Cobertura da área não está disponível|2026-11-09T11:06:00Z|
+REF-007|cidadao07@example.test|OUTRO|BAIXA|ABERTA|Horário informado parece incorreto|2026-11-09T11:07:00Z|
+REF-008|cidadao08@example.test|ACESSO_BLOQUEADO|ALTA|EM_ANALISE|Entrada principal do espaço está fechada|2026-11-09T11:08:00Z|
+REF-009|cidadao01@example.test|SEM_AGUA|MEDIA|RESOLVIDA|Bebedouro estava sem água|2026-11-09T11:09:00Z|2026-11-09T14:09:00Z
+REF-010|cidadao02@example.test|OUTRO|BAIXA|ABERTA|Local está sinalizado como indisponível|2026-11-09T11:10:00Z|

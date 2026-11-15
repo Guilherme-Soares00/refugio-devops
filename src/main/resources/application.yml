@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: refugio
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/refugio}
+    username: ${SPRING_DATASOURCE_USERNAME:refugio_app}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  jackson:
+    time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
+  cache:
+    type: simple
+  data:
+    web:
+      pageable:
+        default-page-size: 20
+        max-page-size: 100
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:}
+    expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  seed:
+    enabled: ${APP_SEED_ENABLED:false}
+  aviso-demonstracao: "Dados demonstrativos. Confirme local e horários antes de usar"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: never

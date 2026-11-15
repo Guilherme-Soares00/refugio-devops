@@ -1,0 +1,10 @@
+REF-001|Centro de Apoio Aurora|Centro Piloto|08:00-18:00|ATIVO
+REF-002|Espaço Sombra Clara|Vila Solar|09:00-17:00|ATIVO
+REF-003|Ponto Jardim Brisa|Jardim Piloto|07:00-19:00|ATIVO
+REF-004|Sala Comunitária Horizonte|Parque Modelo|08:00-16:00|ATIVO
+REF-005|Estação Sol Nascente|Centro Piloto|06:00-20:00|ATIVO
+REF-006|Abrigo Caminho Verde|Vila Solar|10:00-18:00|ATIVO
+REF-007|Espaço Descanso Azul|Jardim Piloto|08:00-18:00|ATIVO
+REF-008|Base Comunitária Ipê|Parque Modelo|09:00-19:00|ATIVO
+REF-009|Ponto Alameda Serena|Centro Piloto|07:00-17:00|ATIVO
+REF-010|Estação Respiro|Vila Solar|08:00-20:00|INATIVO

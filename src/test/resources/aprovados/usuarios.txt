@@ -1,0 +1,10 @@
+Pessoa Teste 01|cidadao01@example.test|CIDADAO
+Pessoa Teste 02|cidadao02@example.test|CIDADAO
+Pessoa Teste 03|cidadao03@example.test|CIDADAO
+Pessoa Teste 04|cidadao04@example.test|CIDADAO
+Pessoa Teste 05|cidadao05@example.test|CIDADAO
+Pessoa Teste 06|cidadao06@example.test|CIDADAO
+Pessoa Teste 07|cidadao07@example.test|CIDADAO
+Pessoa Teste 08|cidadao08@example.test|CIDADAO
+Pessoa Teste 09|gestor09@example.test|GESTOR
+Pessoa Teste 10|gestor10@example.test|GESTOR
