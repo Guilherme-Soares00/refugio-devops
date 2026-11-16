@@ -2,6 +2,16 @@
 
 API de pontos de alívio térmico, com execução em Docker e implantação no Microsoft Azure.
 
+## Equipe
+
+| Integrante | RM | Turma |
+| --- | --- | --- |
+| Luis Fillipe Rodrigues Seripieri | 567918 | 2TDSPB |
+| Gabriel Rocha de Souza | 567023 | 2TDSPB |
+| Luiz Kichimoto Valdevino | 567726 | 2TDSPB |
+| Guilherme Soares | 568227 | 2TDSPB |
+| Gabriel Stuani | 566682 | 2TDSPB |
+
 O Refúgio reúne endereços, horários declarados e recursos, como água e sombra, em pontos de alívio térmico. A consulta é pública. Pessoas com perfil de gestor podem manter o cadastro dos pontos e de seus recursos, enquanto a API também registra medições ambientais e relatos de indisponibilidade.
 
 A API é a parte do sistema que recebe as consultas e salva os cadastros. A interface de testes no navegador permite experimentar essas funções sem depender de um aplicativo móvel.
@@ -21,7 +31,7 @@ Este repositório contém o código da aplicação e a configuração de infraes
 - [Executar os testes](#testes)
 - [Consultar as evidências](#evidencias)
 - [Resolver problemas](#problemas)
-- [Conhecer a estrutura e a equipe](#sobre-o-repositorio)
+- [Conhecer a estrutura do repositório](#sobre-o-repositorio)
 
 <a id="como-executar"></a>
 
@@ -674,7 +684,7 @@ O período até a limpeza do grupo principal durou 759 segundos. Aplicar essa re
 
 <a id="sobre-o-repositorio"></a>
 
-## Estrutura e equipe
+## Estrutura do repositório
 
 ```text
 Dockerfile                  compilação Maven e execução Java 25 sem root
@@ -689,11 +699,3 @@ docs/devops/                diagramas e evidências da execução
 ```
 
 O código da API tem origem no projeto [Refúgio Java](https://github.com/Guilherme-Soares00/refugio), revisão `d492a82f82a96bf56e432aa9f85408ba2ede0943`. A entrega DevOps possui repositório próprio e não modifica o original. A aplicação mantém Spring Boot 3.5.16, Java 25 e PostgreSQL 16, com os domínios Ponto, Recurso, Medição, Ocorrência e Usuário.
-
-| Integrante | RM | Turma |
-| --- | --- | --- |
-| Luis Fillipe Rodrigues Seripieri | 567918 | 2TDSPB |
-| Gabriel Rocha de Souza | 567023 | 2TDSPB |
-| Luiz Kichimoto Valdevino | 567726 | 2TDSPB |
-| Guilherme Soares | 568227 | 2TDSPB |
-| Gabriel Stuani | 566682 | 2TDSPB |
