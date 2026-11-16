@@ -692,5 +692,8 @@ O código da API tem origem no projeto [Refúgio Java](https://github.com/Guilhe
 
 | Integrante | RM | Turma |
 | --- | --- | --- |
+| Luis Fillipe Rodrigues Seripieri | 567918 | A preencher |
+| Gabriel Rocha de Souza | 567023 | A preencher |
+| Luiz Kichimoto Valdevino | 567726 | A preencher |
 | Guilherme Soares | 568227 | A preencher |
-| Demais integrantes | A preencher | A preencher |
+| Gabriel Stuani | 566682 | A preencher |
