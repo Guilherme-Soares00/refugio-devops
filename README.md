@@ -610,6 +610,8 @@ Esse comando remove o container descartável e seu banco de testes por causa de 
 
 ## Evidências da execução
 
+[Assistir ao vídeo demonstrativo no YouTube](https://youtu.be/b66LBdZJXRA).
+
 A solução foi validada em uma VM temporária no Azure. Ao final da sessão, o grupo do projeto e o Network Watcher automático criado durante o teste foram removidos. A consulta final registrou zero grupos e zero recursos na assinatura usada para essa validação.
 
 Esses registros comprovam a execução concluída, não um serviço atualmente online. Para uma nova demonstração, é necessário recriar o ambiente, confirmar seu funcionamento e usar o novo endereço público.
