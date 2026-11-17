@@ -1,12 +1,16 @@
+ARG JAVA_REF=c76af11aef2d871a130b4c3db1c22bd71dfe60dd
+
 FROM eclipse-temurin:25-jdk-jammy AS build
+ARG JAVA_REF
 WORKDIR /build
-COPY .mvn .mvn
-COPY mvnw pom.xml ./
-COPY src/main src/main
+ADD https://github.com/Guilherme-Soares00/refugio.git#${JAVA_REF} /build/
 RUN --mount=type=cache,id=refugio-maven,target=/root/.m2,sharing=locked \
     chmod +x mvnw && ./mvnw -B -Dmaven.test.skip=true package
 
 FROM eclipse-temurin:25-jre-jammy
+ARG JAVA_REF
+LABEL org.opencontainers.image.source="https://github.com/Guilherme-Soares00/refugio" \
+    org.opencontainers.image.revision="${JAVA_REF}"
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \

@@ -9,6 +9,6 @@ docs
 azure
 tests
 scripts
-src/test
+
 *.pem
 *.key
