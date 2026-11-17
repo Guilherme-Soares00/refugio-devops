@@ -647,7 +647,7 @@ Esse comando remove o container descartável e seu banco de testes por causa de 
 
 O vídeo registra a execução da API e do banco em uma VM Azure. Ao final, os recursos criados para a demonstração foram removidos. Os endereços das capturas pertencem a essa sessão encerrada.
 
-O vídeo foi gravado antes da integração direta com o repositório Java. O build atual foi validado localmente: 103 testes Java, 39 verificações HTTP, Swagger com 17 operações e persistência após recriação e reinício dos containers. Os 67 arquivos usados na compilação também foram comparados com a revisão publicada. Essa rodada não incluiu uma nova implantação Azure.
+O vídeo foi gravado antes da integração direta com o repositório Java. O build atual foi validado localmente: 103 testes Java, 39 verificações HTTP, Swagger com 17 operações e persistência após recriação e reinício dos containers. Os 67 arquivos usados na compilação também foram comparados com a revisão publicada.
 
 <details>
 <summary>Resultados registrados na execução Azure</summary>
