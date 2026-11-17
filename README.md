@@ -16,7 +16,7 @@ O Refúgio reúne endereços, horários declarados e recursos, como água e somb
 
 A API é a parte do sistema que recebe as consultas e salva os cadastros. A interface de testes no navegador permite experimentar essas funções sem depender de um aplicativo móvel.
 
-Este repositório contém o código da aplicação e a configuração de infraestrutura da entrega de DevOps Tools & Cloud Computing, da Global Solution FIAP 2026/2. Você pode executar o projeto no seu computador sem instalar Java: o Docker faz a compilação e inicia a API e o banco.
+Este repositório contém a configuração de infraestrutura da entrega de DevOps Tools & Cloud Computing, da Global Solution FIAP 2026/2. A fonte única da API é o [repositório Refúgio Java](https://github.com/Guilherme-Soares00/refugio): o Docker obtém o código diretamente dele, compila a aplicação e inicia a API e o banco, sem exigir Java instalado no computador.
 
 > [!NOTE]
 > Os dados são fictícios e servem para demonstração. Confirme o local e os horários antes de usar qualquer informação do catálogo. As temperaturas apresentadas não são uma avaliação médica nem uma garantia de segurança.
@@ -48,6 +48,14 @@ Este repositório contém o código da aplicação e a configuração de infraes
 | JDK 25 | Apenas se você quiser compilar ou executar os testes Java fora do Docker. |
 
 No Windows, abra o Docker Desktop e aguarde a inicialização. O comando `docker version` precisa mostrar tanto o cliente quanto o servidor.
+
+### De onde vem o código Java
+
+O `Dockerfile` baixa diretamente o repositório público `Guilherme-Soares00/refugio` durante o build. Não há outra cópia de `src`, `pom.xml` ou Maven Wrapper neste repositório DevOps.
+
+A revisão padrão é `c76af11aef2d871a130b4c3db1c22bd71dfe60dd`, definida em `ARG JAVA_REF` no início do Dockerfile. Fixar o commit permite reproduzir a mesma versão da aplicação; publicar um novo commit Java não altera silenciosamente o ambiente. Para adotar uma nova versão, atualize esse SHA no Dockerfile e execute novamente o comando de inicialização com `--build`.
+
+O build precisa de acesso à internet para obter o repositório Java, as imagens e as dependências. A imagem resultante registra o repositório e a revisão Java nos rótulos `org.opencontainers.image.source` e `org.opencontainers.image.revision`.
 
 ### Iniciar a aplicação
 
@@ -211,16 +219,18 @@ flowchart TB
 <details>
 <summary>Entender as etapas do Dockerfile</summary>
 
-O Dockerfile usa duas etapas: compila o projeto com JDK e Maven e copia somente o JAR para a imagem final, que contém o ambiente de execução Java. Isso evita levar ferramentas de compilação para o container da API.
+O Dockerfile usa duas etapas: obtém o código diretamente do repositório Java e o compila com JDK e Maven; depois copia somente o JAR para a imagem final, que contém o ambiente de execução Java. Isso evita duplicar o código da API no DevOps e levar ferramentas de compilação para o container em execução.
 
 | Instrução | Para que serve |
 | --- | --- |
+| `ARG JAVA_REF` | Fixa o commit do repositório Java que será compilado. |
 | `FROM eclipse-temurin:25-jdk-jammy AS build` | Define o Java usado na compilação. |
 | `WORKDIR /build` | Organiza os arquivos da etapa de compilação. |
-| `COPY .mvn`, `mvnw`, `pom.xml` e `src/main` | Copia os arquivos necessários para construir a aplicação. |
+| `ADD https://github.com/Guilherme-Soares00/refugio.git#${JAVA_REF}` | Obtém o código e o Maven Wrapper diretamente do commit Java selecionado. |
 | `RUN --mount=type=cache ... package` | Reaproveita os downloads do Maven entre builds. |
 | `-Dmaven.test.skip=true` | Separa a construção da imagem dos testes que precisam de um banco descartável. |
 | `FROM eclipse-temurin:25-jre-jammy` | Usa um ambiente de execução Java, sem o JDK da compilação. |
+| `LABEL org.opencontainers.image.source` e `revision` | Identificam a origem e a revisão Java da imagem. |
 | `WORKDIR /app` | Define a pasta de trabalho da API. |
 | Instalação de `curl` | Disponibiliza a ferramenta usada pelo healthcheck. |
 | `groupadd`, `useradd` e `USER 10001:10001` | Executam a JVM com um usuário Linux não-root. |
@@ -229,7 +239,7 @@ O Dockerfile usa duas etapas: compila o projeto com JDK e Maven e copia somente 
 | `EXPOSE 8080` | Documenta a porta; quem a publica no computador é o Compose. |
 | `ENTRYPOINT` em array | Inicia o Java diretamente e permite que receba os sinais de parada. |
 
-A `.dockerignore` mantém Git, segredos, testes e outros arquivos desnecessários fora do contexto de build.
+A `.dockerignore` mantém Git, segredos, testes de infraestrutura e outros arquivos locais desnecessários fora do contexto de build. Ela não filtra o repositório Java obtido pelo `ADD`; esse código fica na etapa de compilação e somente o JAR é copiado para a imagem final.
 
 </details>
 
@@ -570,16 +580,23 @@ Os testes complementam as verificações pelo navegador e os comandos de operaç
 No **terminal local**, na raiz do repositório, você pode validar Compose, geração de ambiente e proteções dos scripts sem criar recursos Azure:
 
 ```bash
-node --test tests/compose.test.mjs tests/environment.test.mjs tests/api-safety.test.mjs
+node --test tests/compose.test.mjs tests/environment.test.mjs tests/api-safety.test.mjs tests/source.test.mjs
 bash tests/test-azure.sh
 ```
 
-Os testes Bash usam respostas simuladas para conferir autorizações, parâmetros e limpeza. Eles não criam VM nem comprovam uma implantação real. O CRUD HTTP usa uma API em execução, conforme a [seção de uso](#usar-a-api).
+O teste de origem verifica que o Dockerfile usa o repositório Java com revisão fixada e que não existe código Java duplicado no DevOps. Os testes Bash usam respostas simuladas para conferir autorizações, parâmetros e limpeza. Eles não criam VM nem comprovam uma implantação real. O CRUD HTTP usa uma API em execução, conforme a [seção de uso](#usar-a-api).
 
 <details>
 <summary>Executar a suíte Java com um PostgreSQL descartável</summary>
 
-Requer JDK 25 no computador. A suíte recria tabelas e só aceita o banco `refugio_test`. Nunca aponte os testes para o banco principal ou uma base compartilhada.
+Os testes Java pertencem ao repositório da API. Requerem JDK 25 no computador, recriam tabelas e só aceitam o banco `refugio_test`. Nunca aponte os testes para o banco principal ou uma base compartilhada.
+
+No **Git Bash local**, a partir da raiz do DevOps, faça um checkout separado da mesma revisão Java usada pelo Dockerfile. A pasta de destino deve estar disponível:
+
+```bash
+git clone https://github.com/Guilherme-Soares00/refugio.git ../refugio-java-testes
+git -C ../refugio-java-testes checkout --detach c76af11aef2d871a130b4c3db1c22bd71dfe60dd
+```
 
 No **terminal local**:
 
@@ -590,13 +607,13 @@ docker exec refugio-devops-test pg_isready -U refugio_test -d refugio_test
 
 Aguarde `accepting connections`. Se o container já existir, confira seu estado em vez de criá-lo novamente. As credenciais acima pertencem somente a esse banco descartável.
 
-No **PowerShell local**, na raiz do projeto:
+No **PowerShell local**, abra a pasta `refugio-java-testes` criada acima e execute:
 
 ```powershell
 .\mvnw.cmd -B verify
 ```
 
-Em Linux ou WSL com JDK 25, use `bash mvnw -B verify`. Os relatórios ficam em `target/surefire-reports`. Ao terminar, execute no **terminal local**:
+Em Linux ou WSL com JDK 25, execute `bash mvnw -B verify` na pasta `refugio-java-testes`. Os relatórios ficam em `target/surefire-reports` desse checkout Java, não no repositório DevOps. Ao terminar, execute no **terminal local**:
 
 ```bash
 docker stop refugio-devops-test
@@ -611,6 +628,8 @@ Esse comando remove o container descartável e seu banco de testes por causa de 
 ## Evidências da execução
 
 [Assistir ao vídeo demonstrativo no YouTube](https://youtu.be/b66LBdZJXRA).
+
+O vídeo e os registros Azure desta seção correspondem à implantação anterior, que utilizava a cópia da API então presente neste repositório. A integração direta com o repositório Java foi verificada localmente; esses registros não representam uma nova implantação Azure do Dockerfile atual.
 
 A solução foi validada em uma VM temporária no Azure. Ao final da sessão, o grupo do projeto e o Network Watcher automático criado durante o teste foram removidos. A consulta final registrou zero grupos e zero recursos na assinatura usada para essa validação.
 
@@ -692,12 +711,10 @@ O período até a limpeza do grupo principal durou 759 segundos. Aplicar essa re
 Dockerfile                  compilação Maven e execução Java 25 sem root
 docker-compose.yml          API, PostgreSQL, rede e volume
 .env.example                modelo de configuração sem segredos
-src/main/                   código e dados demonstrativos da API
-src/test/                   testes Java
 scripts/                    preparação do ambiente e testes HTTP
 azure/                      criação da VM, instalação, deploy e limpeza
 tests/                      verificações de configuração e scripts
 docs/devops/                diagramas e evidências da execução
 ```
 
-O código da API tem origem no projeto [Refúgio Java](https://github.com/Guilherme-Soares00/refugio), revisão `d492a82f82a96bf56e432aa9f85408ba2ede0943`. A entrega DevOps possui repositório próprio e não modifica o original. A aplicação mantém Spring Boot 3.5.16, Java 25 e PostgreSQL 16, com os domínios Ponto, Recurso, Medição, Ocorrência e Usuário.
+O código, os dados demonstrativos, o Maven Wrapper e os testes Java permanecem no [repositório Refúgio Java](https://github.com/Guilherme-Soares00/refugio), revisão padrão `c76af11aef2d871a130b4c3db1c22bd71dfe60dd`. A entrega DevOps obtém esse código diretamente durante o build e não modifica o repositório original. A aplicação mantém Spring Boot 3.5.16, Java 25 e PostgreSQL 16, com os domínios Ponto, Recurso, Medição, Ocorrência e Usuário.
