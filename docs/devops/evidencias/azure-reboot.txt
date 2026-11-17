@@ -1,6 +1,0 @@
-NAME          IMAGE                COMMAND                  SERVICE   CREATED              STATUS                    PORTS
-refugio-api   refugio-api:devops   "java -jar /app/app.…"   api       About a minute ago   Up 15 seconds (healthy)   0.0.0.0:8080->8080/tcp
-refugio-db    postgres:16          "docker-entrypoint.s…"   db        About a minute ago   Up 15 seconds (healthy)   127.0.0.1:5432->5432/tcp
-/refugio-api healthy unless-stopped
-/refugio-db healthy unless-stopped
-enabled

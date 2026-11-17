@@ -645,7 +645,7 @@ Esse comando remove o container descartável e seu banco de testes por causa de 
 
 [Assistir ao vídeo demonstrativo no YouTube](https://youtu.be/b66LBdZJXRA).
 
-O vídeo registra a execução da API e do banco em uma VM Azure. Ao final, os recursos criados para a demonstração foram removidos. Os endereços das capturas pertencem a essa sessão encerrada.
+O vídeo registra a execução da API e do banco em uma VM Azure. Ao final, os recursos criados para a demonstração foram removidos. O endereço mostrado no vídeo pertence a essa sessão encerrada.
 
 O vídeo foi gravado antes da integração direta com o repositório Java. O build atual foi validado localmente: 103 testes Java, 39 verificações HTTP, Swagger com 17 operações e persistência após recriação e reinício dos containers. Os 67 arquivos usados na compilação também foram comparados com a revisão publicada.
 
@@ -665,34 +665,6 @@ O vídeo foi gravado antes da integração direta com o repositório Java. O bui
 | Limpeza | Grupo do projeto e grupo automático removidos; inventário final vazio. |
 
 As contagens incluem o ponto e o recurso criados para a persistência. A carga original tem 10 pontos e 20 recursos. Os IDs são resultados daquela execução, não números que outra instalação precise repetir.
-
-</details>
-
-<details>
-<summary>Abrir as capturas e os registros técnicos</summary>
-
-![Swagger na VM Azure durante a validação temporária](docs/devops/evidencias/swagger-azure.png)
-
-O IP visível na captura pertence à sessão encerrada e não é um endereço ativo de demonstração.
-
-| Registro | Arquivo |
-| --- | --- |
-| Resumo da sessão | [azure-resumo.json](docs/devops/evidencias/azure-resumo.json) |
-| Consulta final de limpeza | [azure-limpeza.json](docs/devops/evidencias/azure-limpeza.json) |
-| Requisições do CRUD | [azure-crud.json](docs/devops/evidencias/azure-crud.json) |
-| Infraestrutura e regras de rede | [azure-infraestrutura.json](docs/devops/evidencias/azure-infraestrutura.json) |
-| SELECT antes da recriação | [azure-select-antes.txt](docs/devops/evidencias/azure-select-antes.txt) |
-| SELECT depois da recriação | [azure-select-apos-recriacao.txt](docs/devops/evidencias/azure-select-apos-recriacao.txt) |
-| SELECT depois do reboot | [azure-select-apos-reboot.txt](docs/devops/evidencias/azure-select-apos-reboot.txt) |
-| Verificação HTTP após recriação | [azure-persistencia-recriacao.json](docs/devops/evidencias/azure-persistencia-recriacao.json) |
-| Verificação HTTP após reboot | [azure-persistencia-reboot.json](docs/devops/evidencias/azure-persistencia-reboot.json) |
-| Retorno dos serviços | [azure-reboot.txt](docs/devops/evidencias/azure-reboot.txt) |
-| Trechos dos logs | [azure-logs.txt](docs/devops/evidencias/azure-logs.txt) |
-| Consulta no ambiente local | [swagger-local-get-200.png](docs/devops/evidencias/swagger-local-get-200.png) |
-
-Os três arquivos de SELECT são idênticos. O IP administrativo foi omitido dos registros de infraestrutura. Os arquivos públicos não incluem a senha real do banco, a chave JWT nem a chave SSH privada.
-
-Os registros desta seção são históricos. Na validação local anterior à integração direta, foram executados 104 testes Java, três testes Node e 57 verificações Bash. O instalador teve seu fluxo simulado em Ubuntu 24.04 antes da instalação real na VM. Os resultados do build atual estão descritos acima.
 
 </details>
 
@@ -733,7 +705,7 @@ docker-compose.yml          API, PostgreSQL, rede e volume
 scripts/                    preparação do ambiente e testes HTTP
 azure/                      criação da VM, instalação, deploy e limpeza
 tests/                      verificações de configuração e scripts
-docs/devops/                diagramas e evidências da execução
+docs/devops/                diagramas e PDF de entrega
 ```
 
 O [repositório Java](https://github.com/Guilherme-Soares00/refugio) mantém o código da API, os dados iniciais, o Maven Wrapper e os testes. Aqui ficam os arquivos necessários para construir a imagem e executar a solução localmente ou no Azure. A aplicação usa Java 25, Spring Boot 3.5.16 e PostgreSQL 16.
